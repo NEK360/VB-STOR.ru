@@ -1,0 +1,15 @@
+export const contacts = {
+  phone: "+7 918 797-02-30",
+  phoneClean: "79187970230",
+  email: "vbshop456@gmail.com",
+  telegram: "@VB_STORE_IZOB",
+  telegramUrl: "https://t.me/VB_STORE_IZOB",
+  whatsapp: "+7 918 797-02-30",
+  whatsappUrl: "https://wa.me/79187970230",
+  address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
+  city: "г. Изобильный",
+  region: "Ставропольский край",
+  street: "ул. Кирова, 2Г",
+  workingHours: "Пн–Вс: 9:00 – 20:00",
+  mapUrl: "https://yandex.ru/maps/?text=Изобильный+ул.+Кирова+2Г",
+};
