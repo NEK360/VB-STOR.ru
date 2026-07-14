@@ -1,12 +1,34 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Tag } from "lucide-react";
-import { getSaleProducts } from "../store-data/products";
+import { loadProducts, type Product } from "../lib/api";
 import { seo } from "../store-data/seo";
 import ProductCard from "../components/ui/ProductCard";
 
 export default function SalePage() {
-  const saleProducts = getSaleProducts();
+  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function load() {
+      const products = await loadProducts();
+
+      if (!isActive) return;
+
+      const saleItems = products.filter(
+        (product) => product.isSale || (product.discount ?? 0) > 0 || (product.oldPrice ?? 0) > product.price
+      );
+
+      setSaleProducts(saleItems.length > 0 ? saleItems : products.slice(0, 20));
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     document.title = seo.sale.title;
@@ -30,7 +52,7 @@ export default function SalePage() {
             Распродажа
           </h1>
           <p className="text-white/40 text-base max-w-lg">
-            Лучшие цены на оригинальные товары. Успейте купить по выгодным ценам — предложение ограничено.
+            Лучшие цены на обувь и аксессуары. Успейте купить по выгодным ценам — предложение ограничено.
           </p>
         </motion.div>
 

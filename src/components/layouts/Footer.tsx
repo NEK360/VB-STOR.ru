@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Phone, MessageCircle, Mail, MapPin, Clock } from "lucide-react";
+import { Phone, MessageCircle, Mail, MapPin, Clock, Send } from "lucide-react";
 import { settings } from "../../store-data/settings";
+import { contacts } from "../../store-data/contacts";
 import { navLinks } from "../../store-data/navigation";
 
 export default function Footer() {
@@ -19,7 +20,7 @@ export default function Footer() {
               <span className="font-bold text-lg tracking-widest text-white uppercase">{settings.storeName}</span>
             </Link>
             <p className="text-white/40 text-sm leading-relaxed mb-6">
-              {settings.storeSlogan}. Оригинальные товары с доставкой по России.
+              {settings.storeSlogan}. Товары с доставкой по России.
             </p>
             {/* Social */}
             <div className="flex items-center gap-3">
@@ -101,6 +102,17 @@ export default function Footer() {
                 >
                   <MessageCircle size={15} className="shrink-0" />
                   {settings.telegram}
+                  </a>
+              </li>
+              <li>
+                <a
+                  href={contacts.maxUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 text-white/40 hover:text-white text-sm transition-colors"
+                >
+                  <Send size={15} className="shrink-0" />
+                  {contacts.max}
                 </a>
               </li>
               <li>

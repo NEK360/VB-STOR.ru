@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, ShoppingBag, Star, ExternalLink } from "lucide-react";
-import { type Product } from "../../store-data/products";
+import { preloadProduct, type Product } from "../../lib/api";
 import { useFavorites } from "../../hooks/useFavorites";
 import { formatPrice } from "../../lib/utils";
 import { analytics } from "../../lib/analytics";
@@ -20,6 +20,8 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
 
   const hasImages = product.images.length > 0;
   const currentImg = hasImages ? product.images[imgIndex] : null;
+  const hasDiscount = Boolean(product.oldPrice && product.oldPrice > product.price);
+  const hasReviews = product.reviewsCount > 0;
 
   const handleFav = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,13 +42,14 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.5, delay: index * 0.07, ease: "easeOut" }}
+      transition={{ duration: 0.2, delay: index * 0.02, ease: "easeOut" }}
     >
       <Link
         to={`/catalog/${product.id}`}
         className="group block"
         aria-label={product.name}
         onClick={() => analytics.viewProduct(product.id, product.name, product.price)}
+        onMouseEnter={() => { void preloadProduct(product.id); }}
       >
         <div className="relative overflow-hidden rounded-2xl bg-white/4 border border-white/6 transition-all duration-500 group-hover:border-white/15 group-hover:shadow-2xl group-hover:shadow-black/40">
           {/* Image */}
@@ -85,7 +88,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
                   New
                 </span>
               )}
-              {product.discount && product.discount > 0 && (
+              {hasDiscount && product.discount && product.discount > 0 && (
                 <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                   -{product.discount}%
                 </span>
@@ -139,25 +142,23 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
             </div>
 
             {/* Rating */}
-            {product.rating > 0 && (
-              <div className="flex items-center gap-1.5 my-2">
-                <div className="flex">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      size={11}
-                      className={star <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
-                    />
-                  ))}
-                </div>
-                <span className="text-white/30 text-[11px]">({product.reviewsCount})</span>
+            <div className="flex items-center gap-1.5 my-2">
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={11}
+                    className={hasReviews && star <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
+                  />
+                ))}
               </div>
-            )}
+              <span className="text-white/30 text-[11px]">{hasReviews ? `${product.reviewsCount}` : "Нет отзывов"}</span>
+            </div>
 
             {/* Price */}
             <div className="flex items-baseline gap-2 mt-2">
               <span className="text-white font-bold text-base">{formatPrice(product.price)}</span>
-              {product.oldPrice && (
+              {hasDiscount && product.oldPrice && (
                 <span className="text-white/30 text-xs line-through">{formatPrice(product.oldPrice)}</span>
               )}
             </div>

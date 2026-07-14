@@ -1,24 +1,57 @@
-import { useState, useMemo } from "react";
-import { products, type Product } from "../store-data/products";
+import { useState, useMemo, useEffect } from "react";
+import { loadProducts, type Product } from "../lib/api";
 
 export function useSearch() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const results = useMemo<Product[]>(() => {
+  useEffect(() => {
+    let isActive = true;
+
+    async function load() {
+      const data = await loadProducts();
+
+      if (!isActive) return;
+
+      setProducts(data);
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const results = useMemo(() => {
     if (query.trim().length < 2) return [];
-    const q = query.toLowerCase().trim();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q))
-    );
-  }, [query]);
 
-  const open = () => setIsOpen(true);
-  const close = () => { setIsOpen(false); setQuery(""); };
+    const q = query.toLowerCase();
 
-  return { query, setQuery, results, isOpen, open, close };
+    return products.filter((p: Product) => {
+      const searchable = [
+        p.name,
+        p.brand,
+        p.category,
+        p.article,
+        p.description,
+        ...p.tags,
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      return searchable.includes(q);
+    });
+  }, [query, products]);
+
+  return {
+    query,
+    setQuery,
+    results,
+    isOpen,
+    open: () => setIsOpen(true),
+    close: () => {
+      setIsOpen(false);
+      setQuery("");
+    },
+  };
 }

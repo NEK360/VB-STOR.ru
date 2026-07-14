@@ -29,6 +29,14 @@ export default function ContactsSection() {
       external: true,
     },
     {
+      icon: MessageCircle,
+      label: "MAX",
+      value: contacts.max,
+      href: contacts.maxUrl,
+      method: "MAX",
+      external: true,
+    },
+    {
       icon: Mail,
       label: "Email",
       value: contacts.email,

@@ -11,8 +11,6 @@ export default function FAQPage() {
     document.title = seo.faq.title;
   }, []);
 
-  const categories = [...new Set(faq.map((f) => f.category).filter(Boolean))];
-
   return (
     <main className="min-h-screen pt-20 pb-32">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">

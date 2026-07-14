@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Heart, Star, ExternalLink, MessageCircle, Check, ChevronLeft, ChevronRight, Share2 } from "lucide-react";
-import { getProductById, products, type Product } from "../store-data/products";
+import { Heart, Star, ExternalLink, MessageCircle, Check, ChevronLeft, ChevronRight, Share2, ChevronDown } from "lucide-react";
+import { getProductById, loadProducts, type Product } from "../lib/api";
 import { contacts } from "../store-data/contacts";
 import { formatPrice } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
@@ -13,8 +13,52 @@ import ProductCard from "../components/ui/ProductCard";
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const product = getProductById(id || "");
+  const [product, setProduct] = useState<Product | null>(null);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) {
+      setProduct(null);
+      setRelated([]);
+      setLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    async function load() {
+      setLoading(true);
+      const p = await getProductById(id ?? "");
+
+      if (!isActive) return;
+
+      setProduct(p ?? null);
+
+      if (!p) {
+        setRelated([]);
+        setLoading(false);
+        return;
+      }
+
+      const all = await loadProducts();
+
+      if (!isActive) return;
+
+      setRelated(
+        all
+          .filter((x) => x.category === p.category && x.id !== p.id)
+          .slice(0, 4)
+      );
+      setLoading(false);
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, [id]);
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
@@ -23,15 +67,61 @@ export default function ProductPage() {
   const [selectedColor, setSelectedColor] = useState("");
   const [orderOpen, setOrderOpen] = useState(false);
   const [imgZoomed, setImgZoomed] = useState(false);
+  const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
-    if (product) {
-      document.title = `${product.name} — VB STORE`;
-      addViewed(product.id);
-      analytics.viewProduct(product.id, product.name, product.price);
-      if (product.colors.length > 0) setSelectedColor(product.colors[0].name);
+    if (!product) return;
+
+    document.title = `${product.name} — VB STORE`;
+    addViewed(product.id);
+    analytics.viewProduct(product.id, product.name, product.price);
+    setImgIndex(0);
+    setSelectedSize("");
+    setSelectedColor(product.colors?.[0]?.name ?? "");
+    setImgZoomed(false);
+  }, [addViewed, product]);
+
+  const fav = isFavorite(product?.id ?? "");
+  const hasImages = Boolean(product?.images?.length);
+
+  const prevImg = () => setImgIndex((i) => Math.max(0, i - 1));
+  const nextImg = () => setImgIndex((i) => Math.min((product?.images?.length ?? 1) - 1, i + 1));
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+
+    const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
+    if (delta > 50) {
+      prevImg();
+    } else if (delta < -50) {
+      nextImg();
     }
-  }, [product?.id]);
+
+    setTouchStartX(null);
+  };
+
+  const details = useMemo(() => [
+    { label: "Бренд", value: product?.brand || "—" },
+    { label: "Категория", value: product?.category || "—" },
+    { label: "Пол", value: product?.gender || "—" },
+    { label: "Артикул", value: product?.article || "—" },
+  ], [product]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-6" />
+          <p className="text-white/60 text-lg">Загрузка товара…</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!product) {
     return (
@@ -47,26 +137,9 @@ export default function ProductPage() {
     );
   }
 
-  const fav = isFavorite(product.id);
-  const hasImages = product.images.length > 0;
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
-
-  const prevImg = () => setImgIndex((i) => Math.max(0, i - 1));
-  const nextImg = () => setImgIndex((i) => Math.min(product.images.length - 1, i + 1));
-
-  const getSizeStatus = (status: string) => {
-    switch (status) {
-      case "available": return "bg-white/10 text-white hover:bg-white/20 border-white/15";
-      case "low": return "bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 border-yellow-500/30";
-      case "unavailable": return "bg-white/3 text-white/20 cursor-not-allowed border-white/5";
-      default: return "";
-    }
-  };
-
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Breadcrumb */}
         <nav aria-label="Хлебные крошки" className="flex items-center gap-2 py-6 text-sm text-white/30">
           <Link to="/" className="hover:text-white transition-colors">Главная</Link>
           <span>/</span>
@@ -76,12 +149,12 @@ export default function ProductPage() {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-          {/* Gallery */}
           <div className="space-y-4">
-            {/* Main Image */}
             <div
               className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 cursor-zoom-in"
               onClick={() => setImgZoomed(true)}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
             >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -103,7 +176,6 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Nav arrows */}
               {product.images.length > 1 && (
                 <>
                   <button
@@ -125,18 +197,13 @@ export default function ProductPage() {
                 </>
               )}
 
-              {/* Badges */}
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
                   <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
                 )}
-                {product.discount && product.discount > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-lg">-{product.discount}%</span>
-                )}
               </div>
             </div>
 
-            {/* Thumbnails */}
             {product.images.length > 1 && (
               <div className="flex gap-3 overflow-x-auto scrollbar-none">
                 {product.images.map((img, i) => (
@@ -154,14 +221,12 @@ export default function ProductPage() {
             )}
           </div>
 
-          {/* Product Info */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="flex flex-col"
           >
-            {/* Category & Actions */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-white/30 text-xs uppercase tracking-widest">{product.category}</span>
@@ -194,43 +259,29 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Name */}
             <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">
               {product.name}
             </h1>
 
-            {/* Rating */}
-            {product.rating > 0 && (
-              <div className="flex items-center gap-3 mb-6">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      size={14}
-                      className={s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
-                    />
-                  ))}
-                </div>
-                <span className="text-white font-bold text-sm">{product.rating}</span>
-                <span className="text-white/30 text-sm">{product.reviewsCount} отзывов</span>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={14}
+                    className={product.reviewsCount > 0 && s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
+                  />
+                ))}
               </div>
-            )}
-
-            {/* Price */}
-            <div className="flex items-baseline gap-3 mb-8">
-              <span className="text-white font-black text-4xl">{formatPrice(product.price)}</span>
-              {product.oldPrice && (
-                <span className="text-white/30 text-xl line-through">{formatPrice(product.oldPrice)}</span>
-              )}
-              {product.discount && product.discount > 0 && (
-                <span className="bg-red-500/20 text-red-400 text-sm font-bold px-2 py-0.5 rounded-lg">
-                  Скидка {product.discount}%
-                </span>
-              )}
+              <span className="text-white font-bold text-sm">{product.reviewsCount > 0 ? product.rating : "Нет отзывов"}</span>
+              <span className="text-white/30 text-sm">{product.reviewsCount > 0 ? `${product.reviewsCount} отзывов` : "Нет отзывов"}</span>
             </div>
 
-            {/* Colors */}
-            {product.colors.length > 0 && (
+            <div className="flex items-baseline gap-3 mb-8">
+              <span className="text-white font-black text-4xl">{formatPrice(product.price)}</span>
+            </div>
+
+            {product.colors?.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
                   Цвет: <span className="text-white">{selectedColor}</span>
@@ -241,13 +292,13 @@ export default function ProductPage() {
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
                       className={`group relative w-8 h-8 rounded-full border-2 transition-all ${selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"}`}
-                      style={{ backgroundColor: color.hex }}
+                      style={{ backgroundColor: color.code ?? "#ffffff" }}
                       aria-label={color.name}
                       aria-pressed={selectedColor === color.name}
                     >
                       {selectedColor === color.name && (
                         <span className="absolute inset-0 flex items-center justify-center">
-                          <Check size={12} className={color.hex === "#ffffff" ? "text-black" : "text-white"} />
+                          <Check size={12} className={(color.code ?? "#ffffff") === "#ffffff" ? "text-black" : "text-white"} />
                         </span>
                       )}
                     </button>
@@ -256,7 +307,6 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Sizes */}
             {product.sizes.length > 0 && (
               <div className="mb-8">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
@@ -287,7 +337,6 @@ export default function ProductPage() {
               </div>
             )}
 
-            {/* Availability */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {product.offlineOnly && !product.bothAvailable && (
                 <div className="flex items-start gap-3">
@@ -320,7 +369,6 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Stock info */}
               {product.sizes.some((s) => s.stockOffline !== undefined) && (
                 <div className="mt-3 pt-3 border-t border-white/8">
                   <p className="text-white/30 text-xs mb-2">Остатки в магазине:</p>
@@ -335,7 +383,6 @@ export default function ProductPage() {
               )}
             </div>
 
-            {/* CTA Buttons */}
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => setOrderOpen(true)}
@@ -367,6 +414,17 @@ export default function ProductPage() {
                 </a>
               </div>
 
+              <a
+                href={contacts.maxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => analytics.clickContact("max")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/8 border border-white/10 text-white/70 text-sm font-medium hover:bg-white/12 transition-all"
+              >
+                <MessageCircle size={16} />
+                MAX
+              </a>
+
               {product.wbUrl && (
                 <a
                   href={product.wbUrl}
@@ -381,20 +439,85 @@ export default function ProductPage() {
               )}
             </div>
 
-            {/* Description */}
-            {product.description && (
-              <div className="mt-8 pt-8 border-t border-white/8">
-                <h2 className="text-white font-semibold text-sm uppercase tracking-widest mb-4">О товаре</h2>
-                <p className="text-white/50 text-sm leading-relaxed">{product.description}</p>
+            <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
+              <div className="rounded-2xl border border-white/8 bg-white/4">
+                <button
+                  onClick={() => setOpenSection((value) => (value === "about" ? null : "about"))}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">О товаре</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openSection === "about" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">{product.description || "Подробное описание будет добавлено позже."}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            )}
 
-            {/* Article */}
-            <p className="mt-4 text-white/20 text-xs">Артикул: {product.article}</p>
+              <div className="rounded-2xl border border-white/8 bg-white/4">
+                <button
+                  onClick={() => setOpenSection((value) => (value === "details" ? null : "details"))}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Характеристики</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openSection === "details" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-4 space-y-2 text-sm text-white/60">
+                        {details.map((item) => (
+                          <div key={item.label} className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
+                            <span>{item.label}</span>
+                            <span className="text-white/80">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="rounded-2xl border border-white/8 bg-white/4">
+                <button
+                  onClick={() => setOpenSection((value) => (value === "delivery" ? null : "delivery"))}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Доставка и оплата</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openSection === "delivery" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
+                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа используйте WhatsApp, Telegram или форму заявки.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </motion.div>
         </div>
 
-        {/* Related Products */}
         {related.length > 0 && (
           <section className="mt-20" aria-labelledby="related-title">
             <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">
@@ -409,7 +532,6 @@ export default function ProductPage() {
         )}
       </div>
 
-      {/* Order Modal */}
       <OrderModal
         product={product}
         selectedSize={selectedSize}
@@ -418,7 +540,6 @@ export default function ProductPage() {
         onClose={() => setOrderOpen(false)}
       />
 
-      {/* Image Zoom */}
       <AnimatePresence>
         {imgZoomed && hasImages && (
           <motion.div

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 import LoadingScreen from "./components/ui/LoadingScreen";
@@ -83,16 +83,12 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <CustomCursor />
       {!loaded && <LoadingScreen onComplete={() => setLoaded(true)} />}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: loaded ? 1 : 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        {loaded && <AppRoutes />}
-      </motion.div>
-    </BrowserRouter>
+      <div className="min-h-screen bg-black text-white">
+        <AppRoutes />
+      </div>
+    </HashRouter>
   );
 }

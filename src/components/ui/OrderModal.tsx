@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, MessageCircle, Send, Check, Loader } from "lucide-react";
-import { type Product } from "../../store-data/products";
-import { settings } from "../../store-data/settings";
+import { X, MessageCircle, Send, Check, Loader, Phone } from "lucide-react";
+import { type Product } from "../../lib/api";
 import { contacts } from "../../store-data/contacts";
 import { sendOrderEmail } from "../../lib/email";
 import { analytics } from "../../lib/analytics";
@@ -144,6 +143,26 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
                     >
                       <Send size={16} />
                       Telegram
+                    </a>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <a
+                      href={contacts.maxUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-600/20 border border-purple-600/30 text-purple-400 text-sm hover:bg-purple-600/30 transition-all"
+                      onClick={() => analytics.clickContact("max")}
+                    >
+                      <MessageCircle size={16} />
+                      MAX
+                    </a>
+                    <a
+                      href={`tel:${contacts.phoneClean}`}
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/10 border border-white/10 text-white/80 text-sm hover:bg-white/20 transition-all"
+                    >
+                      <Phone size={16} />
+                      Позвонить
                     </a>
                   </div>
 

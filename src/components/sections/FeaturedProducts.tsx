@@ -1,11 +1,31 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { getFeaturedProducts } from "../../store-data/products";
+import { loadProducts, type Product } from "../../lib/api";
 import ProductCard from "../ui/ProductCard";
+import { useEffect, useState } from "react";
 
 export default function FeaturedProducts() {
-  const products = getFeaturedProducts();
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function load() {
+      const allProducts = await loadProducts();
+
+      if (!isActive) return;
+
+      const featuredItems = allProducts.filter((product) => product.isFeatured);
+      setProducts(featuredItems.length > 0 ? featuredItems : allProducts.slice(0, 8));
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   return (
     <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6" aria-labelledby="featured-title">

@@ -17,7 +17,7 @@ export const heroSlides: HeroSlide[] = [
     badge: "Новая коллекция 2025",
     title: "VB STORE",
     subtitle: "Premium Fashion",
-    description: "Оригинальные кроссовки, одежда и аксессуары. Стиль без компромиссов.",
+    description: "Обувь и аксессуары в современном стиле. Выбирайте удобные и актуальные модели.",
     primaryButton: { label: "Смотреть каталог", href: "/catalog" },
     secondaryButton: { label: "Хиты продаж", href: "/catalog?filter=featured" },
     image: "https://basket-38.wbbasket.ru/vol8616/part861613/861613454/images/big/1.webp",

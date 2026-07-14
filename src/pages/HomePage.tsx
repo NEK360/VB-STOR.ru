@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight, Tag } from "lucide-react";
@@ -8,13 +8,37 @@ import Advantages from "../components/sections/Advantages";
 import ReviewsSection from "../components/sections/ReviewsSection";
 import ContactsSection from "../components/sections/ContactsSection";
 import ProductCard from "../components/ui/ProductCard";
-import { getNewProducts, getSaleProducts } from "../store-data/products";
+import { loadProducts, type Product } from "../lib/api";
 import { banners } from "../store-data/banners";
 import { seo } from "../store-data/seo";
 
 export default function HomePage() {
-  const newProducts = getNewProducts().slice(0, 4);
-  const saleProducts = getSaleProducts().slice(0, 4);
+  const [newProducts, setNewProducts] = useState<Product[]>([]);
+  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function load() {
+      const products = await loadProducts();
+
+      if (!isActive) return;
+
+      const newItems = products.filter((product) => product.isNew).slice(0, 4);
+      const saleItems = products
+        .filter((product) => product.isSale || (product.discount ?? 0) > 0 || (product.oldPrice ?? 0) > product.price)
+        .slice(0, 4);
+
+      setNewProducts(newItems.length > 0 ? newItems : products.slice(0, 4));
+      setSaleProducts(saleItems.length > 0 ? saleItems : products.slice(0, 4));
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     document.title = seo.home.title;
@@ -99,6 +123,35 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* Categories */}
+      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6" aria-label="Категории">
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">Подборка по категориям</p>
+            <h2 className="text-white font-black text-3xl md:text-4xl tracking-tight">Категории</h2>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          {[
+            { label: "Мужские кроссовки", href: "/catalog?category=Мужские кроссовки" },
+            { label: "Женские кроссовки", href: "/catalog?category=Женские кроссовки" },
+            { label: "Бутсы", href: "/catalog?category=Бутсы" },
+            { label: "Ботинки", href: "/catalog?category=Ботинки" },
+            { label: "Лоферы", href: "/catalog?category=Лоферы" },
+            { label: "Туфли", href: "/catalog?category=Туфли" },
+            { label: "Аксессуары", href: "/catalog?category=Аксессуары" },
+          ].map((item) => (
+            <Link
+              key={item.label}
+              to={item.href}
+              className="rounded-2xl border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/70 hover:text-white hover:bg-white/8 transition-all"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {/* Sale CTA */}
       {saleProducts.length > 0 && (

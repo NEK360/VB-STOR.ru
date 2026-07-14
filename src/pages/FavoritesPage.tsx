@@ -1,14 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Heart, ArrowRight } from "lucide-react";
 import { useFavorites } from "../hooks/useFavorites";
-import { getProductById } from "../store-data/products";
+import { getProductById, type Product } from "../lib/api";
 import ProductCard from "../components/ui/ProductCard";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
-  const favoriteProducts = favorites.map((id) => getProductById(id)).filter(Boolean) as NonNullable<ReturnType<typeof getProductById>>[];
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function load() {
+      const products = await Promise.all(
+        favorites.map((id) => getProductById(id))
+      );
+
+      if (!isActive) return;
+
+      setFavoriteProducts(
+        products.filter((product): product is Product => Boolean(product))
+      );
+    }
+
+    void load();
+
+    return () => {
+      isActive = false;
+    };
+  }, [favorites]);
 
   useEffect(() => {
     document.title = "Избранное — VB STORE";

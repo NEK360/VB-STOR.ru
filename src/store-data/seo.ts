@@ -9,10 +9,10 @@ export interface PageSEO {
 export const seo: Record<string, PageSEO> = {
   home: {
     title: "VB STORE — Premium Fashion & Accessories",
-    description: "VB STORE — премиальный интернет-магазин кроссовок, одежды и аксессуаров. Оригинальные товары с доставкой по России. г. Изобильный.",
+    description: "VB STORE — премиальный интернет-магазин обуви и аксессуаров с доставкой по России. г. Изобильный.",
     keywords: "VB STORE, кроссовки, одежда, аксессуары, купить, интернет-магазин, Изобильный",
     ogTitle: "VB STORE — Premium Fashion",
-    ogDescription: "Оригинальные кроссовки, одежда и аксессуары с доставкой по России",
+    ogDescription: "Обувь и аксессуары с доставкой по России",
   },
   catalog: {
     title: "Каталог товаров — VB STORE",

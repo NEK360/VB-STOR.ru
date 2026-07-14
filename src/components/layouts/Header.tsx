@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Heart, Menu, X, Phone, MessageCircle } from "lucide-react";
+import { Search, Heart, Menu, X, Phone, MessageCircle, Send } from "lucide-react";
 import { navLinks } from "../../store-data/navigation";
 import { settings } from "../../store-data/settings";
+import { contacts } from "../../store-data/contacts";
 import { useFavorites } from "../../hooks/useFavorites";
 import { useSearch } from "../../hooks/useSearch";
 import SearchModal from "../ui/SearchModal";
@@ -46,7 +47,7 @@ export default function Header() {
             <div className="w-9 h-9 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/50 transition-colors duration-300">
               <span className="text-sm font-black tracking-tighter text-white">VB</span>
             </div>
-            <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block">
+            <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
               {settings.storeName}
             </span>
           </Link>
@@ -91,8 +92,18 @@ export default function Header() {
               className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 py-2 rounded-lg hover:bg-white/5"
               aria-label="Telegram"
             >
+              <Send size={15} />
+              <span className="hidden xl:block whitespace-nowrap">Telegram</span>
+            </a>
+            <a
+              href={contacts.maxUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 py-2 rounded-lg hover:bg-white/5"
+              aria-label="MAX"
+            >
               <MessageCircle size={15} />
-              <span className="hidden xl:block">Telegram</span>
+              <span className="hidden xl:block whitespace-nowrap">MAX</span>
             </a>
             <a
               href={`tel:${settings.phoneClean}`}
@@ -100,7 +111,7 @@ export default function Header() {
               aria-label="Телефон"
             >
               <Phone size={15} />
-              <span className="hidden xl:block">{settings.phone}</span>
+              <span className="hidden xl:block whitespace-nowrap">{settings.phone}</span>
             </a>
 
             {/* Search */}
@@ -200,8 +211,12 @@ export default function Header() {
                   WhatsApp
                 </a>
                 <a href={settings.telegramUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
-                  <MessageCircle size={16} />
+                  <Send size={16} />
                   Telegram {settings.telegram}
+                </a>
+                <a href={contacts.maxUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
+                  <MessageCircle size={16} />
+                  MAX
                 </a>
               </div>
             </motion.nav>

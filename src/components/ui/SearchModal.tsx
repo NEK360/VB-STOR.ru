@@ -8,7 +8,7 @@ interface SearchModalProps {
   search: {
     query: string;
     setQuery: (q: string) => void;
-    results: import("../../store-data/products").Product[];
+    results: import("../../lib/api").Product[];
     isOpen: boolean;
     open: () => void;
     close: () => void;

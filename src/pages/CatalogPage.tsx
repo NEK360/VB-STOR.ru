@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, X, ChevronDown } from "lucide-react";
-import { products, type Product } from "../store-data/products";
+import { Filter, RotateCcw } from "lucide-react";
 import { categories } from "../store-data/categories";
 import { seo } from "../store-data/seo";
 import ProductCard from "../components/ui/ProductCard";
+import { loadProducts, type Product } from "../lib/api";
 
 type SortOption = "default" | "price-asc" | "price-desc" | "rating" | "new";
 type FilterType = "all" | "new" | "featured" | "sale";
@@ -15,48 +15,133 @@ export default function CatalogPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [sort, setSort] = useState<SortOption>("default");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedBrand, setSelectedBrand] = useState("all");
+  const [selectedSize, setSelectedSize] = useState("all");
   const [selectedGender, setSelectedGender] = useState("all");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const filterParam = (searchParams.get("filter") || "all") as FilterType;
+
+  useEffect(() => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    } else {
+      setSelectedCategory("all");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function fetchData() {
+      try {
+        const data = await loadProducts();
+        if (!isActive) return;
+        setProducts(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    void fetchData();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   useEffect(() => {
     document.title = seo.catalog.title;
   }, []);
 
-  const maxPrice = Math.max(...products.map((p) => p.price));
+  const maxPrice = useMemo(() => {
+    if (products.length === 0) return 100000;
+    return Math.max(...products.map((p) => p.price));
+  }, [products]);
+
+  const minPrice = useMemo(() => {
+    if (products.length === 0) return 0;
+    return Math.min(...products.map((p) => p.price));
+  }, [products]);
+
+  const brands = useMemo(() => {
+    const values = products
+      .map((product) => product.brand)
+      .filter(Boolean)
+      .map((brand) => brand.trim())
+      .sort((a, b) => a.localeCompare(b));
+
+    return Array.from(new Set(values));
+  }, [products]);
+
+  const sizes = useMemo(() => {
+    const values = products
+      .flatMap((product) => product.sizes.map((size) => size.value))
+      .filter(Boolean)
+      .map((size) => size.trim())
+      .sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+
+    return Array.from(new Set(values));
+  }, [products]);
 
   const filtered = useMemo<Product[]>(() => {
     let list = [...products];
 
-    // Filter type
-    if (filterParam === "new") list = list.filter((p) => p.isNew);
-    else if (filterParam === "featured") list = list.filter((p) => p.isFeatured);
-    else if (filterParam === "sale") list = list.filter((p) => p.isSale);
+    if (filterParam === "new") {
+      const newItems = list.filter((p) => p.isNew);
+      list = newItems.length > 0 ? newItems : list;
+    } else if (filterParam === "featured") {
+      const featuredItems = list.filter((p) => p.isFeatured);
+      list = featuredItems.length > 0 ? featuredItems : list;
+    } else if (filterParam === "sale") {
+      const saleItems = list.filter((p) => p.isSale || (p.discount ?? 0) > 0 || (p.oldPrice ?? 0) > p.price);
+      list = saleItems.length > 0 ? saleItems : list;
+    }
 
-    // Category
+    const normalize = (value: string) => value.trim().toLowerCase();
+
     if (selectedCategory !== "all") {
-      list = list.filter((p) => p.category === selectedCategory);
+      list = list.filter((p) => normalize(p.category).includes(normalize(selectedCategory)) || normalize(p.category) === normalize(selectedCategory));
     }
 
-    // Gender
+    if (selectedBrand !== "all") {
+      list = list.filter((p) => normalize(p.brand) === normalize(selectedBrand));
+    }
+
+    if (selectedSize !== "all") {
+      list = list.filter((p) => p.sizes.some((size) => normalize(size.value) === normalize(selectedSize)));
+    }
+
     if (selectedGender !== "all") {
-      list = list.filter((p) => p.gender === selectedGender);
+      list = list.filter((p) => normalize(p.gender) === normalize(selectedGender));
     }
 
-    // Price
+    if (onlyAvailable) {
+      list = list.filter((p) => p.available || p.sizes.some((size) => size.status !== "unavailable"));
+    }
+
     list = list.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
 
-    // Sort
     switch (sort) {
-      case "price-asc": list.sort((a, b) => a.price - b.price); break;
-      case "price-desc": list.sort((a, b) => b.price - a.price); break;
-      case "rating": list.sort((a, b) => b.rating - a.rating); break;
-      case "new": list.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)); break;
+      case "price-asc":
+        list.sort((a, b) => a.price - b.price);
+        break;
+      case "price-desc":
+        list.sort((a, b) => b.price - a.price);
+        break;
+      case "rating":
+        list.sort((a, b) => b.rating - a.rating);
+        break;
+      case "new":
+        list.sort((a, b) => Number(b.isNew) - Number(a.isNew));
+        break;
     }
 
     return list;
-  }, [filterParam, selectedCategory, selectedGender, priceRange, sort]);
+  }, [products, filterParam, selectedCategory, selectedBrand, selectedSize, selectedGender, onlyAvailable, priceRange, sort]);
 
   const filterTitle: Record<FilterType, string> = {
     all: "Весь каталог",
@@ -66,15 +151,36 @@ export default function CatalogPage() {
   };
 
   const setFilter = (f: FilterType) => {
-    if (f === "all") searchParams.delete("filter");
-    else searchParams.set("filter", f);
-    setSearchParams(searchParams, { replace: true });
+    const next = new URLSearchParams(searchParams);
+    if (f === "all") next.delete("filter");
+    else next.set("filter", f);
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (category === "all") next.delete("category");
+    else next.set("category", category);
+    setSearchParams(next, { replace: true });
+    setSelectedCategory(category);
+  };
+
+  const resetFilters = () => {
+    setSelectedCategory("all");
+    setSelectedBrand("all");
+    setSelectedSize("all");
+    setSelectedGender("all");
+    setOnlyAvailable(false);
+    setPriceRange([minPrice, maxPrice]);
+    const next = new URLSearchParams(searchParams);
+    next.delete("category");
+    next.delete("filter");
+    setSearchParams(next, { replace: true });
   };
 
   return (
     <main className="min-h-screen pt-20 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -88,7 +194,6 @@ export default function CatalogPage() {
           <p className="text-white/30 mt-3 text-sm">{filtered.length} товаров</p>
         </motion.div>
 
-        {/* Filter Tabs */}
         <div className="flex items-center gap-2 mb-8 overflow-x-auto scrollbar-none pb-2">
           {(["all", "new", "featured", "sale"] as FilterType[]).map((f) => (
             <button
@@ -106,7 +211,6 @@ export default function CatalogPage() {
 
           <div className="flex-1" />
 
-          {/* Sort & Filter */}
           <div className="flex items-center gap-2 shrink-0">
             <select
               value={sort}
@@ -133,7 +237,6 @@ export default function CatalogPage() {
           </div>
         </div>
 
-        {/* Filter Panel */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -143,13 +246,12 @@ export default function CatalogPage() {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="glass rounded-2xl p-6 mb-8 border border-white/8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Category */}
+              <div className="glass rounded-2xl p-6 mb-8 border border-white/8 grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Категория</label>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
                     <button
-                      onClick={() => setSelectedCategory("all")}
+                      onClick={() => handleCategoryChange("all")}
                       className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedCategory === "all" ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
                     >
                       Все категории
@@ -157,7 +259,7 @@ export default function CatalogPage() {
                     {categories.map((cat) => (
                       <button
                         key={cat.id}
-                        onClick={() => setSelectedCategory(cat.slug)}
+                        onClick={() => handleCategoryChange(cat.slug)}
                         className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedCategory === cat.slug ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
                       >
                         {cat.icon} {cat.name}
@@ -166,47 +268,122 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                {/* Gender */}
                 <div>
-                  <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Пол</label>
-                  <div className="flex flex-wrap gap-2">
-                    {["all", "Мужской", "Женский", "Унисекс"].map((g) => (
+                  <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Бренд</label>
+                  <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+                    <button
+                      onClick={() => setSelectedBrand("all")}
+                      className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedBrand === "all" ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
+                    >
+                      Все бренды
+                    </button>
+                    {brands.map((brand) => (
                       <button
-                        key={g}
-                        onClick={() => setSelectedGender(g)}
-                        className={`text-sm px-3 py-1.5 rounded-lg transition-all ${selectedGender === g ? "bg-white text-black" : "bg-white/6 text-white/50 hover:text-white"}`}
+                        key={brand}
+                        onClick={() => setSelectedBrand(brand)}
+                        className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedBrand === brand ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
                       >
-                        {g === "all" ? "Все" : g}
+                        {brand}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Price */}
                 <div>
-                  <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">
-                    Цена: до {priceRange[1].toLocaleString("ru-RU")} ₽
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={maxPrice}
-                    value={priceRange[1]}
-                    onChange={(e) => setPriceRange([0, Number(e.target.value)])}
-                    className="w-full accent-white"
-                    aria-label="Максимальная цена"
-                  />
-                  <div className="flex justify-between text-white/30 text-xs mt-1">
-                    <span>0 ₽</span>
-                    <span>{maxPrice.toLocaleString("ru-RU")} ₽</span>
+                  <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Размер</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedSize("all")}
+                      className={`text-sm px-3 py-1.5 rounded-lg transition-all ${selectedSize === "all" ? "bg-white text-black" : "bg-white/6 text-white/50 hover:text-white"}`}
+                    >
+                      Все
+                    </button>
+                    {sizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={`text-sm px-3 py-1.5 rounded-lg transition-all ${selectedSize === size ? "bg-white text-black" : "bg-white/6 text-white/50 hover:text-white"}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Пол</label>
+                    <div className="flex flex-wrap gap-2">
+                      {["all", "Мужской", "Женский", "Унисекс"].map((g) => (
+                        <button
+                          key={g}
+                          onClick={() => setSelectedGender(g)}
+                          className={`text-sm px-3 py-1.5 rounded-lg transition-all ${selectedGender === g ? "bg-white text-black" : "bg-white/6 text-white/50 hover:text-white"}`}
+                        >
+                          {g === "all" ? "Все" : g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-sm text-white/60">
+                    <input
+                      type="checkbox"
+                      checked={onlyAvailable}
+                      onChange={() => setOnlyAvailable((value) => !value)}
+                      className="accent-white"
+                    />
+                    Только в наличии
+                  </label>
+
+                  <div>
+                    <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">
+                      Цена: {priceRange[0].toLocaleString("ru-RU")} ₽ — {priceRange[1].toLocaleString("ru-RU")} ₽
+                    </label>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <input
+                        type="number"
+                        min={minPrice}
+                        max={maxPrice}
+                        value={priceRange[0]}
+                        onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
+                        className="bg-white/6 border border-white/10 text-white text-sm px-3 py-2 rounded-lg outline-none"
+                        aria-label="Минимальная цена"
+                      />
+                      <input
+                        type="number"
+                        min={minPrice}
+                        max={maxPrice}
+                        value={priceRange[1]}
+                        onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                        className="bg-white/6 border border-white/10 text-white text-sm px-3 py-2 rounded-lg outline-none"
+                        aria-label="Максимальная цена"
+                      />
+                    </div>
+                    <input
+                      type="range"
+                      min={minPrice}
+                      max={maxPrice}
+                      value={priceRange[1]}
+                      onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
+                      className="w-full accent-white"
+                      aria-label="Максимальная цена"
+                    />
+                  </div>
+
+                  <button
+                    onClick={resetFilters}
+                    className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors"
+                  >
+                    <RotateCcw size={14} />
+                    Сбросить фильтры
+                  </button>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Products Grid */}
         {filtered.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
