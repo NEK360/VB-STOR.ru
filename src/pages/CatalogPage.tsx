@@ -8,7 +8,7 @@ import ProductCard from "../components/ui/ProductCard";
 import { loadProducts, type Product } from "../lib/api";
 
 type SortOption = "default" | "price-asc" | "price-desc" | "rating" | "new";
-type FilterType = "all" | "new" | "featured" | "sale";
+type FilterType = "all" | "sale";
 
 export default function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,13 +90,7 @@ export default function CatalogPage() {
   const filtered = useMemo<Product[]>(() => {
     let list = [...products];
 
-    if (filterParam === "new") {
-      const newItems = list.filter((p) => p.isNew);
-      list = newItems.length > 0 ? newItems : list;
-    } else if (filterParam === "featured") {
-      const featuredItems = list.filter((p) => p.isFeatured);
-      list = featuredItems.length > 0 ? featuredItems : list;
-    } else if (filterParam === "sale") {
+    if (filterParam === "sale") {
       const saleItems = list.filter((p) => p.isSale || (p.discount ?? 0) > 0 || (p.oldPrice ?? 0) > p.price);
       list = saleItems.length > 0 ? saleItems : list;
     }
@@ -145,8 +139,6 @@ export default function CatalogPage() {
 
   const filterTitle: Record<FilterType, string> = {
     all: "Весь каталог",
-    new: "Новинки",
-    featured: "Хиты продаж",
     sale: "Распродажа",
   };
 
@@ -195,7 +187,7 @@ export default function CatalogPage() {
         </motion.div>
 
         <div className="flex items-center gap-2 mb-8 overflow-x-auto scrollbar-none pb-2">
-          {(["all", "new", "featured", "sale"] as FilterType[]).map((f) => (
+          {(["all", "sale"] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}

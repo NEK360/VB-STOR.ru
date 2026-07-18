@@ -137,6 +137,14 @@ export default function ProductPage() {
     );
   }
 
+  const handleOrderClick = () => {
+    if (!selectedSize) {
+      alert("Пожалуйста, выберите размер");
+      return;
+    }
+    setOrderOpen(true);
+  };
+
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -385,7 +393,7 @@ export default function ProductPage() {
 
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => setOrderOpen(true)}
+                onClick={handleOrderClick}
                 className="w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-white/90 transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
                 Оставить заявку
