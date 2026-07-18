@@ -59,11 +59,14 @@ export default function ProductPage() {
       isActive = false;
     };
   }, [id]);
+
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
-  const [imgIndex, setImgIndex] = useState(0);
-  const [selectedSize, setSelectedSize] = useState("");
+  // ✅ Правильная логика для галереи
+  const [activePhoto, setActivePhoto] = useState(0);
+  // ✅ Правильная логика для размера
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [orderOpen, setOrderOpen] = useState(false);
   const [imgZoomed, setImgZoomed] = useState(false);
@@ -76,8 +79,8 @@ export default function ProductPage() {
     document.title = `${product.name} — VB STORE`;
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
-    setImgIndex(0);
-    setSelectedSize("");
+    setActivePhoto(0);
+    setSelectedSize(null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
   }, [addViewed, product]);
@@ -85,8 +88,14 @@ export default function ProductPage() {
   const fav = isFavorite(product?.id ?? "");
   const hasImages = Boolean(product?.images?.length);
 
-  const prevImg = () => setImgIndex((i) => Math.max(0, i - 1));
-  const nextImg = () => setImgIndex((i) => Math.min((product?.images?.length ?? 1) - 1, i + 1));
+  // ✅ Переключение стрелками (зациклено)
+  const handlePrevPhoto = () => {
+    setActivePhoto((prev) => prev === 0 ? (product?.images.length ?? 1) - 1 : prev - 1);
+  };
+
+  const handleNextPhoto = () => {
+    setActivePhoto((prev) => prev === (product?.images.length ?? 1) - 1 ? 0 : prev + 1);
+  };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null);
@@ -97,9 +106,9 @@ export default function ProductPage() {
 
     const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
     if (delta > 50) {
-      prevImg();
+      handlePrevPhoto();
     } else if (delta < -50) {
-      nextImg();
+      handleNextPhoto();
     }
 
     setTouchStartX(null);
@@ -111,6 +120,34 @@ export default function ProductPage() {
     { label: "Пол", value: product?.gender || "—" },
     { label: "Артикул", value: product?.article || "—" },
   ], [product]);
+
+  // ✅ Вспомогательная функция для проверки остатков
+  const getStockStatus = () => {
+    if (!product) return { shopStock: 0, wbStock: 0 };
+    
+    const shopStock = Number(product.sizes.reduce((sum, s) => sum + (s.stockOffline ?? 0), 0));
+    const wbStock = Number(product.sizes.reduce((sum, s) => sum + (s.stockWB ?? 0), 0));
+    
+    console.log({
+      nmID: product.id,
+      shopQty: shopStock,
+      wbQty: wbStock,
+      sizes: product.sizes,
+    });
+
+    return { shopStock, wbStock };
+  };
+
+  const { shopStock, wbStock } = getStockStatus();
+
+  // ✅ Обработчик кнопки заявки с проверкой размера
+  const handleOrderClick = () => {
+    if (!selectedSize) {
+      alert("Пожалуйста, выберите размер");
+      return;
+    }
+    setOrderOpen(true);
+  };
 
   if (loading) {
     return (
@@ -137,14 +174,6 @@ export default function ProductPage() {
     );
   }
 
-  const handleOrderClick = () => {
-    if (!selectedSize) {
-      alert("Пожалуйста, выберите размер");
-      return;
-    }
-    setOrderOpen(true);
-  };
-
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -157,6 +186,7 @@ export default function ProductPage() {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+          {/* ✅ Галерея фотографий */}
           <div className="space-y-4">
             <div
               className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 cursor-zoom-in"
@@ -167,15 +197,15 @@ export default function ProductPage() {
               {hasImages ? (
                 <AnimatePresence mode="wait">
                   <motion.img
-                    key={imgIndex}
-                    src={product.images[imgIndex]}
-                    alt={`${product.name} — фото ${imgIndex + 1}`}
+                    key={activePhoto}
+                    src={product.images[activePhoto]}
+                    alt={`${product.name} — фото ${activePhoto + 1}`}
                     initial={{ opacity: 0, scale: 1.02 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     className="w-full h-full object-cover"
-                    loading={imgIndex === 0 ? "eager" : "lazy"}
+                    loading={activePhoto === 0 ? "eager" : "lazy"}
                   />
                 </AnimatePresence>
               ) : (
@@ -184,20 +214,25 @@ export default function ProductPage() {
                 </div>
               )}
 
+              {/* ✅ Стрелки навигации (всегда видны, не перекрыты, зациклены) */}
               {product.images.length > 1 && (
                 <>
                   <button
-                    onClick={(e) => { e.stopPropagation(); prevImg(); }}
-                    disabled={imgIndex === 0}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass flex items-center justify-center text-white disabled:opacity-20 transition-all hover:bg-white/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevPhoto();
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
                     aria-label="Предыдущее фото"
                   >
                     <ChevronLeft size={18} />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); nextImg(); }}
-                    disabled={imgIndex === product.images.length - 1}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass flex items-center justify-center text-white disabled:opacity-20 transition-all hover:bg-white/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextPhoto();
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
                     aria-label="Следующее фото"
                   >
                     <ChevronRight size={18} />
@@ -212,15 +247,18 @@ export default function ProductPage() {
               </div>
             </div>
 
+            {/* ✅ Миниатюры с активным стилем */}
             {product.images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto scrollbar-none">
+              <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
                 {product.images.map((img, i) => (
                   <button
                     key={i}
-                    onClick={() => setImgIndex(i)}
-                    className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${i === imgIndex ? "border-white" : "border-white/10 hover:border-white/30"}`}
+                    onClick={() => setActivePhoto(i)}
+                    className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                      i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
+                    }`}
                     aria-label={`Фото ${i + 1}`}
-                    aria-pressed={i === imgIndex}
+                    aria-pressed={i === activePhoto}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                   </button>
@@ -258,7 +296,9 @@ export default function ProductPage() {
                 </button>
                 <button
                   onClick={() => toggle(product.id)}
-                  className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${fav ? "bg-white border-white text-black" : "border-white/10 text-white/30 hover:text-white hover:border-white/30"}`}
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
+                    fav ? "bg-white border-white text-black" : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
+                  }`}
                   aria-label={fav ? "Убрать из избранного" : "Добавить в избранное"}
                   aria-pressed={fav}
                 >
@@ -299,7 +339,9 @@ export default function ProductPage() {
                     <button
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
-                      className={`group relative w-8 h-8 rounded-full border-2 transition-all ${selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"}`}
+                      className={`group relative w-8 h-8 rounded-full border-2 transition-all ${
+                        selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"
+                      }`}
                       style={{ backgroundColor: color.code ?? "#ffffff" }}
                       aria-label={color.name}
                       aria-pressed={selectedColor === color.name}
@@ -315,6 +357,7 @@ export default function ProductPage() {
               </div>
             )}
 
+            {/* ✅ Выбор размера с правильной логикой */}
             {product.sizes.length > 0 && (
               <div className="mb-8">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
@@ -326,7 +369,7 @@ export default function ProductPage() {
                       disabled={size.status === "unavailable"}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
                         selectedSize === size.value
-                          ? "bg-white text-black border-white"
+                          ? "bg-white text-black border-white font-semibold"
                           : getSizeStatus(size.status)
                       }`}
                       aria-label={`Размер ${size.value}${size.status === "unavailable" ? " — нет в наличии" : size.status === "low" ? " — мало" : ""}`}
@@ -345,8 +388,10 @@ export default function ProductPage() {
               </div>
             )}
 
+            {/* ✅ Исправленная логика остатков */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
-              {product.offlineOnly && !product.bothAvailable && (
+              {/* Показываем галочку магазина только если shopStock > 0 */}
+              {shopStock > 0 && (
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
@@ -356,66 +401,87 @@ export default function ProductPage() {
                   </div>
                 </div>
               )}
-              {product.wbOnly && !product.bothAvailable && product.wbUrl && (
-                <div className="flex items-start gap-3">
+              {/* Показываем галочку WB только если wbStock > 0 */}
+              {wbStock > 0 && (
+                <div className={`flex items-start gap-3 ${shopStock > 0 ? "mt-3 pt-3 border-t border-white/8" : ""}`}>
                   <div className="w-2 h-2 rounded-full bg-purple-400 mt-1.5 shrink-0" />
                   <div>
                     <p className="text-white text-sm font-medium">✔ Есть на Wildberries</p>
                   </div>
                 </div>
               )}
-              {product.bothAvailable && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                    <p className="text-white text-sm">✔ В магазине — г. Изобильный, ул. Кирова, 2Г</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-purple-400 shrink-0" />
-                    <p className="text-white text-sm">✔ На Wildberries</p>
-                  </div>
+              {/* Если оба === 0 */}
+              {shopStock === 0 && wbStock === 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-white/30" />
+                  <p className="text-white/40 text-sm">Товар временно недоступен</p>
                 </div>
               )}
 
-              {product.sizes.some((s) => s.stockOffline !== undefined) && (
+              {product.sizes.some((s) => s.stockOffline !== undefined || s.stockWB !== undefined) && (shopStock > 0 || wbStock > 0) && (
                 <div className="mt-3 pt-3 border-t border-white/8">
-                  <p className="text-white/30 text-xs mb-2">Остатки в магазине:</p>
+                  <p className="text-white/30 text-xs mb-2">Остатки по размерам:</p>
                   <div className="flex flex-wrap gap-2">
-                    {product.sizes.map((s) => (
-                      <span key={s.value} className="text-xs text-white/40">
-                        {s.value}: {s.stockOffline ?? "?"} шт
-                      </span>
-                    ))}
+                    {product.sizes.map((s) => {
+                      const offline = Number(s.stockOffline ?? 0);
+                      const wb = Number(s.stockWB ?? 0);
+                      return (
+                        <span key={s.value} className="text-xs text-white/40">
+                          {s.value}: {offline > 0 ? `${offline}м` : ""}{offline > 0 && wb > 0 ? ", " : ""}{wb > 0 ? `${wb}wb` : offline === 0 && wb === 0 ? "—" : ""}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
+            {/* ✅ Кнопки с проверкой размера */}
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleOrderClick}
-                className="w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-white/90 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
+                  !selectedSize
+                    ? "bg-white/50 text-black/50 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-white/90"
+                }`}
               >
-                Оставить заявку
+                {selectedSize ? "Оставить заявку" : "Выберите размер"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href={`${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}${selectedSize ? `, размер ${selectedSize}` : ""}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => analytics.clickContact("whatsapp")}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600/15 border border-green-600/25 text-green-400 text-sm font-medium hover:bg-green-600/25 transition-all"
+                  href={selectedSize ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  target={selectedSize ? "_blank" : undefined}
+                  rel={selectedSize ? "noopener noreferrer" : undefined}
+                  onClick={() => {
+                    if (selectedSize) {
+                      analytics.clickContact("whatsapp");
+                    }
+                  }}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
+                    selectedSize
+                      ? "bg-green-600/15 border border-green-600/25 text-green-400 hover:bg-green-600/25"
+                      : "bg-green-600/8 border border-green-600/15 text-green-400/50 cursor-not-allowed"
+                  }`}
                 >
                   <MessageCircle size={16} />
                   WhatsApp
                 </a>
                 <a
-                  href={`${contacts.telegramUrl}?text=Хочу заказать: ${product.name}${selectedSize ? `, размер ${selectedSize}` : ""}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => analytics.clickContact("telegram")}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600/15 border border-blue-600/25 text-blue-400 text-sm font-medium hover:bg-blue-600/25 transition-all"
+                  href={selectedSize ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  target={selectedSize ? "_blank" : undefined}
+                  rel={selectedSize ? "noopener noreferrer" : undefined}
+                  onClick={() => {
+                    if (selectedSize) {
+                      analytics.clickContact("telegram");
+                    }
+                  }}
+                  className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
+                    selectedSize
+                      ? "bg-blue-600/15 border border-blue-600/25 text-blue-400 hover:bg-blue-600/25"
+                      : "bg-blue-600/8 border border-blue-600/15 text-blue-400/50 cursor-not-allowed"
+                  }`}
                 >
                   <MessageCircle size={16} />
                   Telegram
@@ -542,7 +608,7 @@ export default function ProductPage() {
 
       <OrderModal
         product={product}
-        selectedSize={selectedSize}
+        selectedSize={selectedSize ?? undefined}
         selectedColor={selectedColor}
         isOpen={orderOpen}
         onClose={() => setOrderOpen(false)}
@@ -558,14 +624,15 @@ export default function ProductPage() {
             onClick={() => setImgZoomed(false)}
           >
             <motion.img
-              src={product.images[imgIndex]}
+              src={product.images[activePhoto]}
               alt={product.name}
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               className="max-w-full max-h-full object-contain rounded-2xl"
             />
             <button
-              className="absolute top-6 right-6 text-white/50 hover:text-white"
+              onClick={() => setImgZoomed(false)}
+              className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
               aria-label="Закрыть"
             >
               ✕
