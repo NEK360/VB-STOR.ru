@@ -91,7 +91,7 @@ export default function ProductPage() {
     setActivePhoto(0);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
-    setSelectedSize(firstAvailable);
+    setSelectedSize(String(firstAvailable));
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
@@ -401,9 +401,9 @@ export default function ProductPage() {
                   value={promoInput}
                   onChange={(e) => setPromoInput(e.target.value)}
                   placeholder="Промокод"
-                  className="bg-white/3 text-white px-3 py-2 rounded-xl"
+                  className="bg-white/3 text-white px-3 py-2 rounded-xl placeholder-white/30 outline-none focus:bg-white/5 transition-colors"
                 />
-                <button onClick={applyPromo} className="bg-white text-black px-4 py-2 rounded-xl">Применить</button>
+                <button onClick={applyPromo} className="bg-white text-black px-4 py-2 rounded-xl font-medium hover:bg-white/90 transition-all">Применить</button>
                 {promoInput && !appliedPromo && promoInput.trim() !== "" && (
                   <div className="text-rose-400 text-sm ml-3">Промокод не найден</div>
                 )}
@@ -451,20 +451,15 @@ export default function ProductPage() {
                       onClick={() => size.status !== "unavailable" && setSelectedSize(String(size.value))}
                       disabled={size.status === "unavailable"}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
-                        selectedSize === String(size.value) ? "bg-white text-black border-white font-semibold" : getSizeStatus(size.status)
+                        String(selectedSize) === String(size.value) ? "bg-white text-black border-white font-semibold" : getSizeStatus(size.status)
                       }`}
                       aria-label={`Размер ${size.value}${size.status === "unavailable" ? " — нет в наличии" : size.status === "low" ? " — мало" : ""}`}
-                      aria-pressed={selectedSize === String(size.value)}
+                      aria-pressed={String(selectedSize) === String(size.value)}
                     >
                       {size.value}
                       {size.status === "low" && <span className="ml-1 text-[9px]">•</span>}
                     </button>
                   ))}
-                </div>
-                <div className="flex items-center gap-4 mt-3 text-xs text-white/30">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/40" />В наличии</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400/60" />Мало</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-white/15" />Нет</span>
                 </div>
               </div>
             )}
@@ -479,7 +474,7 @@ export default function ProductPage() {
               )}
 
               {selectedSize && shopQty > 0 && (
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
                     <p className="text-white text-sm font-medium">✔ Есть в наличии в магазине</p>
@@ -489,22 +484,12 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {selectedSize && shopQty === 0 && wbQty > 0 && (
+              {selectedSize && wbQty > 0 && (
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                  <div className="flex items-center justify-between w-full">
-                    <div>
-                      <p className="text-white text-sm font-medium">🔵 Есть только на WB</p>
-                      <p className="text-white/40 text-xs mt-1">Доставка со склада Wildberries</p>
-                    </div>
-                    <div>
-                      <button
-                        onClick={() => product.wbUrl && window.open(product.wbUrl, "_blank")}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-xl font-semibold"
-                      >
-                        Купить на Wildberries
-                      </button>
-                    </div>
+                  <div>
+                    <p className="text-white text-sm font-medium">✔ Есть на Wildberries</p>
+                    <p className="text-white/40 text-xs mt-1">Доставка со склада WB</p>
                   </div>
                 </div>
               )}
@@ -512,28 +497,6 @@ export default function ProductPage() {
               {selectedSize && shopQty === 0 && wbQty === 0 && (
                 <div>
                   <p className="text-white text-sm font-medium">❌ Нет в наличии</p>
-                  <div className="mt-3">
-                    <button className="bg-white/10 text-white px-4 py-2 rounded-xl font-semibold cursor-not-allowed" disabled>Добавить в избранное</button>
-                    <button className="ml-2 bg-white/10 text-white px-4 py-2 rounded-xl font-semibold cursor-not-allowed" disabled>Оставить заявку</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Остатки по размерам (таблица) */}
-              {product.sizes.some((s) => s.stockOffline !== undefined || s.stockWB !== undefined) && (
-                <div className="mt-3 pt-3 border-t border-white/8">
-                  <p className="text-white/30 text-xs mb-2">Остатки по размерам:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {product.sizes.map((s) => {
-                      const offline = Number(s.stockOffline ?? 0);
-                      const wb = Number(s.stockWB ?? 0);
-                      return (
-                        <span key={s.value} className="text-xs text-white/40">
-                          {s.value}: {offline > 0 ? `${offline}м` : ""}{offline > 0 && wb > 0 ? ", " : ""}{wb > 0 ? `${wb}wb` : offline === 0 && wb === 0 ? "—" : ""}
-                        </span>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </div>
@@ -584,6 +547,17 @@ export default function ProductPage() {
                 </a>
               </div>
 
+              {/* Кнопка Купить на WB — отображается всегда, если есть ссылка */}
+              {product.wbUrl && (
+                <button
+                  onClick={() => window.open(product.wbUrl, "_blank")}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-purple-600/15 border border-purple-600/25 text-purple-400 text-sm font-medium hover:bg-purple-600/25 transition-all"
+                >
+                  <ExternalLink size={16} />
+                  Купить на Wildberries
+                </button>
+              )}
+
               <a
                 href={contacts.maxUrl}
                 target="_blank"
@@ -594,8 +568,6 @@ export default function ProductPage() {
                 <MessageCircle size={16} />
                 MAX
               </a>
-
-              {/* WB link shown separately only when needed — handled above on selected size */}
             </div>
 
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
@@ -667,7 +639,7 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа используйте WhatsApp, Telegram или форму заявки.
+                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа обратитесь через WhatsApp, Telegram или форму заявки.
                       </p>
                     </motion.div>
                   )}
