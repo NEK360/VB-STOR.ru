@@ -13,11 +13,14 @@ interface OrderModalProps {
   selectedColor?: string;
   isOpen: boolean;
   onClose: () => void;
+  promocode?: string;
+  discount?: number;
+  finalPrice?: number;
 }
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose }: OrderModalProps) {
+export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose, promocode, discount, finalPrice }: OrderModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
@@ -43,7 +46,7 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
     setErrors({});
 
     try {
-      const success = await sendOrderEmail({
+      const orderPayload = {
         customerName: sanitizeInput(name),
         customerPhone: sanitizeInput(phone),
         customerTelegram: telegram ? sanitizeInput(telegram) : undefined,
@@ -53,7 +56,14 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
         color: selectedColor,
         comment: comment ? sanitizeInput(comment) : undefined,
         timestamp: new Date().toLocaleString("ru-RU"),
-      });
+        // new fields
+        price: product.price,
+        promocode: promocode ?? undefined,
+        discount: discount ?? 0,
+        finalPrice: finalPrice ?? product.price,
+      } as const;
+
+      const success = await sendOrderEmail(orderPayload as any);
 
       if (success) {
         setStatus("success");
@@ -182,7 +192,7 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Иван"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.name ? "border-red-500/60" : "border-white/10"}`}
+                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.name ? "border-red-400" : "border-white/10"}`}
                         aria-required="true"
                         aria-invalid={!!errors.name}
                         aria-describedby={errors.name ? "name-error" : undefined}
@@ -197,7 +207,7 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="+7 900 000-00-00"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.phone ? "border-red-500/60" : "border-white/10"}`}
+                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.phone ? "border-red-400" : "border-white/10"}`}
                         aria-required="true"
                         aria-invalid={!!errors.phone}
                         aria-describedby={errors.phone ? "phone-error" : undefined}
