@@ -114,7 +114,22 @@ export default function ProductPage() {
     if (Array.isArray(p.videos)) {
       for (const v of p.videos) if (v) videoItems.push({ type: "video", src: String(v) });
     }
-    const images = Array.isArray(product.images) ? product.images.filter(Boolean).map((s) => ({ type: "image", src: s })) : [];
+    const images = Array.isArray(product.images)
+  ? product.images
+      .filter(Boolean)
+      .map((s) => ({
+        type: "image",
+        src: String(s).trim()
+      }))
+  : typeof product.images === "string"
+  ? product.images
+      .split(";")
+      .filter(Boolean)
+      .map((s) => ({
+        type: "image",
+        src: s.trim()
+      }))
+  : [];
     return [...videoItems, ...images];
   }, [product]);
 
@@ -399,28 +414,35 @@ export default function ProductPage() {
 
             {/* Промокод */}
             <div className="mb-6">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input
- value={promoInput}
- onChange={(e)=>setPromoInput(e.target.value)}
- placeholder="Промокод"
- type="text"
- autoComplete="off"
- className="
- w-full
- bg-white/10
- border
- border-white/20
- text-white
- px-4
- py-3
- rounded-xl
- placeholder-white/40
- outline-none
- focus:border-white
- "
+value={promoInput}
+onChange={(e)=>setPromoInput(e.target.value)}
+placeholder="Промокод"
+className="
+w-full
+bg-white/10
+border border-white/20
+text-white
+px-4
+py-3
+rounded-xl
+outline-none
+"
 />
-                <button onClick={applyPromo} className="bg-white text-black px-4 py-2 rounded-xl font-medium hover:bg-white/90 transition-all">Применить</button>
+                <button
+onClick={applyPromo}
+className="
+px-5
+py-3
+rounded-xl
+bg-white
+text-black
+font-medium
+"
+>
+Применить
+</button>
                 {promoInput && !appliedPromo && promoInput.trim() !== "" && (
                   <div className="text-rose-400 text-sm ml-3">Промокод не найден</div>
                 )}
@@ -458,20 +480,46 @@ export default function ProductPage() {
             )}
 
             {/* Размеры */}
-            {product.sizes.length > 0 && (
-              <div className="mb-8">
-                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
-                    <button
-                      key={size.value}
-                      onClick={() => size.status !== "unavailable" && setSelectedSize(String(size.value))}
-                      disabled={false}
-                      className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+            {product.sizes.map((size) => {
+
+const available =
+Number(size.stockOffline ?? 0) > 0 ||
+Number(size.stockWB ?? 0) > 0;
+
+return (
+
+<button
+key={size.value}
+
+onClick={() =>
+setSelectedSize(String(size.value))
+}
+
+className={`
+px-4 py-2 rounded-xl border text-sm font-medium transition-all
+
+${
 String(selectedSize) === String(size.value)
-? "bg-white text-black border-white scale-105"
-: "bg-white/5 text-white border-white/10 hover:bg-white/10"
-}`}
+?
+"bg-white text-black border-white scale-105"
+:
+available
+?
+"bg-white/10 text-white hover:bg-white/20 border-white/20"
+:
+"bg-white/5 text-white/30 border-white/10"
+}
+
+`}
+>
+
+{size.value}
+
+</button>
+
+)
+
+})}
                       aria-label={`Размер ${size.value}${size.status === "unavailable" ? " — нет в наличии" : size.status === "low" ? " — мало" : ""}`}
                       aria-pressed={String(selectedSize) === String(size.value)}
                     >
