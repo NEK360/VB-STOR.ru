@@ -705,8 +705,7 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
-            </div>
-          </div>
+          </motion.div>
         </div>
 
         {related.length > 0 && (
@@ -716,10 +715,10 @@ font-medium
               {related.map((p, i) => (
                 <ProductCard key={p.id} product={p} index={i} />
               ))}
-            </div>
+            </</motion.div>
           </section>
         )}
-      </motion.div>
+      </div>
 
       <OrderModal
         product={product}
