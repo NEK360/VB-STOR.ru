@@ -705,8 +705,9 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
-         </motion.div>
-      </div>
+         </div> 
+          </motion.div>
+        </div>
 
       {related.length > 0 && (
         <section className="mt-20" aria-labelledby="related-title">
