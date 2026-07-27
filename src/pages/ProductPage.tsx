@@ -701,7 +701,7 @@ font-medium
                 </AnimatePresence>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         {related.length > 0 && (
