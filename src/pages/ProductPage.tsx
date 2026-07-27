@@ -181,7 +181,7 @@ export default function ProductPage() {
       setAppliedPromo(null);
       return;
     }
-    if (!PROMOCODES[code]) {
+    if (!(code in PROMOCODES)) {
       setAppliedPromo(null);
       return;
     }
@@ -246,11 +246,10 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
-              className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 cursor-zoom-in"
-              onClick={() => setImgZoomed(true)}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
+ className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
+ onTouchStart={handleTouchStart}
+ onTouchEnd={handleTouchEnd}
+>
               {hasImages ? (
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -264,8 +263,9 @@ export default function ProductPage() {
                     {gallery[activePhoto]?.type === "video" ? (
                       <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
                     ) : (
-                      <img
-                        src={gallery[activePhoto]?.src}
+                     <img
+ src={gallery[activePhoto]?.src}
+ onClick={() => setImgZoomed(true)}
                         alt={`${product.name} — фото ${activePhoto + 1}`}
                         className="w-full h-full object-cover"
                         loading={activePhoto === 0 ? "eager" : "lazy"}
@@ -317,7 +317,10 @@ export default function ProductPage() {
                 {gallery.map((item, i) => (
                   <button
                     key={item.src}
-                    onClick={() => setActivePhoto(i)}
+                    onClick={(e) => {
+ e.stopPropagation();
+ setActivePhoto(i);
+}}
                     className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
                       i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
                     }`}
@@ -391,18 +394,32 @@ export default function ProductPage() {
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">{formatPrice(product.price)} ₽</span>
+              <span className="text-white font-black text-4xl">{formatPrice(product.price)} </span>
             </div>
 
             {/* Промокод */}
             <div className="mb-6">
               <div className="flex items-center gap-2">
                 <input
-                  value={promoInput}
-                  onChange={(e) => setPromoInput(e.target.value)}
-                  placeholder="Промокод"
-                  className="bg-white/3 text-white px-3 py-2 rounded-xl placeholder-white/30 outline-none focus:bg-white/5 transition-colors"
-                />
+ value={promoInput}
+ onChange={(e)=>setPromoInput(e.target.value)}
+ placeholder="Промокод"
+ type="text"
+ autoComplete="off"
+ className="
+ w-full
+ bg-white/10
+ border
+ border-white/20
+ text-white
+ px-4
+ py-3
+ rounded-xl
+ placeholder-white/40
+ outline-none
+ focus:border-white
+ "
+/>
                 <button onClick={applyPromo} className="bg-white text-black px-4 py-2 rounded-xl font-medium hover:bg-white/90 transition-all">Применить</button>
                 {promoInput && !appliedPromo && promoInput.trim() !== "" && (
                   <div className="text-rose-400 text-sm ml-3">Промокод не найден</div>
@@ -449,10 +466,12 @@ export default function ProductPage() {
                     <button
                       key={size.value}
                       onClick={() => size.status !== "unavailable" && setSelectedSize(String(size.value))}
-                      disabled={size.status === "unavailable"}
+                      disabled={false}
                       className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
-                        String(selectedSize) === String(size.value) ? "bg-white text-black border-white font-semibold" : getSizeStatus(size.status)
-                      }`}
+String(selectedSize) === String(size.value)
+? "bg-white text-black border-white scale-105"
+: "bg-white/5 text-white border-white/10 hover:bg-white/10"
+}`}
                       aria-label={`Размер ${size.value}${size.status === "unavailable" ? " — нет в наличии" : size.status === "low" ? " — мало" : ""}`}
                       aria-pressed={String(selectedSize) === String(size.value)}
                     >
