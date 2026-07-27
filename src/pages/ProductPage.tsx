@@ -353,7 +353,12 @@ export default function ProductPage() {
             )}
           </div>
 
-          <div className="flex flex-col">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex flex-col"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-white/30 text-xs uppercase tracking-widest">{product.category}</span>
@@ -714,7 +719,7 @@ font-medium
             </div>
           </section>
         )}
-      </div>
+      </motion.div>
 
       <OrderModal
         product={product}
