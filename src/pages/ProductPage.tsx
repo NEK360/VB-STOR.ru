@@ -705,19 +705,29 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
-          </motion.div>
-        </div>
+         </motion.div>
+      </div>
 
-        {related.length > 0 && (
-          <section className="mt-20" aria-labelledby="related-title">
-            <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">Похожие товары</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {related.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
-              ))}
-            </</motion.div>
-          </section>
-        )}
+      {related.length > 0 && (
+        <section className="mt-20" aria-labelledby="related-title">
+          <h2
+            id="related-title"
+            className="text-white font-black text-3xl tracking-tight mb-8"
+          >
+            Похожие товары
+          </h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {related.map((p, i) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                index={i}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       </div>
 
       <OrderModal
