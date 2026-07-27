@@ -480,57 +480,50 @@ font-medium
             )}
 
             {/* Размеры */}
-            {product.sizes.map((size) => {
+{product.sizes.length > 0 && (
+  <div className="mb-8">
+    <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+      Размер
+    </p>
 
-const available =
-Number(size.stockOffline ?? 0) > 0 ||
-Number(size.stockWB ?? 0) > 0;
+    <div className="flex flex-wrap gap-2">
 
-return (
+      {product.sizes.map((size) => {
 
-<button
-key={size.value}
+        const available =
+          Number(size.stockOffline ?? 0) > 0 ||
+          Number(size.stockWB ?? 0) > 0;
 
-onClick={() =>
-setSelectedSize(String(size.value))
-}
+        const isSelected =
+          String(selectedSize) === String(size.value);
 
-className={`
-px-4 py-2 rounded-xl border text-sm font-medium transition-all
+        return (
+          <button
+            key={size.value}
+            onClick={() =>
+              setSelectedSize(String(size.value))
+            }
+            className={`
+              px-4 py-2 rounded-xl border text-sm font-medium transition-all
 
-${
-String(selectedSize) === String(size.value)
-?
-"bg-white text-black border-white scale-105"
-:
-available
-?
-"bg-white/10 text-white hover:bg-white/20 border-white/20"
-:
-"bg-white/5 text-white/30 border-white/10"
-}
+              ${
+                isSelected
+                  ? "bg-white text-black border-white scale-105"
+                  : available
+                  ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  : "bg-white/5 text-white/30 border-white/10"
+              }
+            `}
+          >
+            {size.value}
+          </button>
+        );
 
-`}
->
+      })}
 
-{size.value}
-
-</button>
-
-)
-
-})}
-                      aria-label={`Размер ${size.value}${size.status === "unavailable" ? " — нет в наличии" : size.status === "low" ? " — мало" : ""}`}
-                      aria-pressed={String(selectedSize) === String(size.value)}
-                    >
-                      {size.value}
-                      {size.status === "low" && <span className="ml-1 text-[9px]">•</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
+    </div>
+  </div>
+)}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {/* Если размер не выбран */}
