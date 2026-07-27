@@ -607,54 +607,77 @@ font-medium
                 </a>
               </div>
 
-             {/* Кнопка Купить на WB */}
-{product.wbUrl && (
-  <button
-    onClick={() => window.open(product.wbUrl, "_blank")}
-    className="flex items-center justify-center gap-2 py-3 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 transition-all"
-  >
-    Купить на Wildberries
-  </button>
-)}
+             {/* Кнопка Купить на WB — отображается всегда, если есть ссылка */}
+              {product.wbUrl && (
+                <button
+                  onClick={() => window.open(product.wbUrl, "_blank")}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-purple-600/15 border border-purple-600/25 text-purple-400 text-sm font-medium hover:bg-purple-600/25 transition-all"
+                >
+                  <ExternalLink size={16} />
+                  Купить на Wildberries
+                </button>
+              )}
 
-{/* Доставка */}
-<div className="mt-4 border border-white/10 rounded-xl overflow-hidden">
-  <button
-    onClick={() =>
-      setOpenSection(openSection === "delivery" ? null : "delivery")
-    }
-    className="w-full flex items-center justify-between px-4 py-3 text-white"
-  >
-    <span>Доставка и оплата</span>
+              <a
+                href={contacts.maxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => analytics.clickContact("max")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/8 border border-white/10 text-white/70 text-sm font-medium hover:bg-white/12 transition-all"
+              >
+                <MessageCircle size={16} />
+                MAX
+              </a>
+            </div>
 
-    <ChevronDown
-      size={16}
-      className={`transition-transform ${
-        openSection === "delivery"
-          ? "rotate-180"
-          : ""
-      }`}
-    />
-  </button>
+            <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
+              <div className="rounded-2xl border border-white/8 bg-white/4">
+                <button
+                  onClick={() => setOpenSection((value) => (value === "about" ? null : "about"))}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">О товаре</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openSection === "about" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">{product.description || "Подробное описание будет добавлено позже."}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-  <AnimatePresence initial={false}>
-    {openSection === "delivery" && (
-      <motion.div
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: "auto", opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        className="overflow-hidden"
-      >
-        <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-          Возможна доставка по запросу, а также самовывоз:
-          г. Изобильный, ул. Кирова, 2Г.
-          Для заказа обратитесь через WhatsApp,
-          Telegram или форму заявки.
-        </p>
-      </motion.div>
-    )}
-  </AnimatePresence>
-</div>
+              <div className="rounded-2xl border border-white/8 bg-white/4">
+                <button
+                  onClick={() => setOpenSection((value) => (value === "details" ? null : "details"))}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left"
+                >
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Характеристики</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {openSection === "details" && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-4 pb-4 space-y-2 text-sm text-white/60">
+                        {details.map((item) => (
+                          <div key={item.label} className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
+                            <span>{item.label}</span>
+                            <span className="text-white/80">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>
