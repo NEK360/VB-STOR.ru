@@ -43,8 +43,11 @@ export async function sendOrderEmail(
 
   product: String(data.productName || "Не указан"),
 
-  size: String(data.size || "Не выбран"),
-  color: String(data.color || "Не выбран"),
+product_url: String(data.productUrl || ""),
+product_image: String(data.productImage || ""),
+
+size: String(data.size || "Не выбран"),
+color: String(data.color || "Не выбран"),
 
   price: String(data.finalPrice ?? data.price ?? 0),
   promocode: String(data.promocode || "Нет"),
