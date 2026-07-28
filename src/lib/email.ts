@@ -6,6 +6,8 @@ export interface OrderEmailData {
   customerTelegram?: string;
   productName: string;
   productId: string;
+  productUrl?: string;
+  imageUrl?: string;
   size?: string;
   color?: string;
   comment?: string;
