@@ -29,27 +29,24 @@ export async function sendOrderEmail(
       SERVICE_ID,
       TEMPLATE_ID,
       {
-        to_email: "vbshop456@gmail.com",
+  to_email: "vbshop456@gmail.com",
 
-        customer_name: data.customerName,
-        customer_phone: data.customerPhone,
-        customer_telegram: data.customerTelegram || "Не указан",
+  name: data.customerName,
+  phone: data.customerPhone,
+  telegram: data.customerTelegram || "Не указан",
 
-        product_name: data.productName,
-        product_id: data.productId,
+  product: data.productName,
 
-        size: data.size || "Не выбран",
-        color: data.color || "Не выбран",
+  size: data.size || "Не выбран",
+  color: data.color || "Не выбран",
 
-        price: data.price ?? "",
-        promocode: data.promocode || "Нет",
-        discount: data.discount ? `${data.discount}%` : "0%",
-        final_price: data.finalPrice ?? data.price,
+  price: data.finalPrice ?? data.price ?? 0,
+  promocode: data.promocode || "Нет",
 
-        comment: data.comment || "Без комментария",
+  comment: data.comment || "Без комментария",
 
-        timestamp: data.timestamp,
-      },
+  timestamp: data.timestamp,
+},
       PUBLIC_KEY
     );
 
