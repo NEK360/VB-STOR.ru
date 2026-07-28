@@ -54,8 +54,12 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
   productName: product.name,
   productId: product.id,
         
-  productUrl: `${window.location.origin}/product/${product.id}`,
-  imageUrl: product.images?.[0] || "",
+ productUrl: `${window.location.origin}/product/${product.id}`,
+
+ productImage:
+  product.images && product.images.length > 0
+    ? product.images[0]
+    : "",
 
   size: selectedSize,
   color: selectedColor,
