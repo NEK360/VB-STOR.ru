@@ -47,24 +47,25 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
 
     try {
       const orderPayload = {
-        customerName: sanitizeInput(name),
-        customerPhone: sanitizeInput(phone),
-        customerTelegram: telegram ? sanitizeInput(telegram) : undefined,
-        productName: product.name,
-        productId: product.id,
-        size: selectedSize,
-        color: selectedColor,
-        comment: comment ? sanitizeInput(comment) : undefined,
-        timestamp: new Date().toLocaleString("ru-RU"),
-        };
-      
-        console.log("ORDER DATA", orderPayload);
-        // new fields
-        price: product.price,
-        promocode: promocode ?? undefined,
-        discount: discount ?? 0,
-        finalPrice: finalPrice ?? product.price,
-      } as const;
+  customerName: sanitizeInput(name),
+  customerPhone: sanitizeInput(phone),
+  customerTelegram: telegram ? sanitizeInput(telegram) : undefined,
+
+  productName: product.name,
+  productId: product.id,
+
+  size: selectedSize,
+  color: selectedColor,
+
+  comment: comment ? sanitizeInput(comment) : undefined,
+
+  timestamp: new Date().toLocaleString("ru-RU"),
+
+  price: product.price,
+  promocode: promocode ?? undefined,
+  discount: discount ?? 0,
+  finalPrice: finalPrice ?? product.price,
+} as const;
 
       const success = await sendOrderEmail(orderPayload as any);
 
