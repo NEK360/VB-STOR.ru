@@ -56,6 +56,9 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
         color: selectedColor,
         comment: comment ? sanitizeInput(comment) : undefined,
         timestamp: new Date().toLocaleString("ru-RU"),
+        };
+      
+        console.log("ORDER DATA", orderPayload);
         // new fields
         price: product.price,
         promocode: promocode ?? undefined,
