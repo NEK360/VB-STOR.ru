@@ -4,12 +4,16 @@ export interface OrderEmailData {
   customerName: string;
   customerPhone: string;
   customerTelegram?: string;
+
   productName: string;
   productId: string;
+
   productUrl?: string;
-  imageUrl?: string;
+  productImage?: string;
+
   size?: string;
   color?: string;
+
   comment?: string;
   timestamp: string;
 
