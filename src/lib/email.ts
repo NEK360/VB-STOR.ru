@@ -59,11 +59,3 @@ export async function sendOrderEmail(
     return false;
   }
 }
-    // Заглушка — пока email не подключён
-    console.log("[Email] Order submitted (email not configured):", data);
-    return true;
-  } catch (error) {
-    console.error("[Email] Failed to send order:", error);
-    return false;
-  }
-};
