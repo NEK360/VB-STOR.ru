@@ -28,22 +28,22 @@ export async function sendOrderEmail(
     await emailjs.send(
       SERVICE_ID,
       TEMPLATE_ID,
-      {
+     {
   to_email: "vbshop456@gmail.com",
 
-  name: data.customerName,
-  phone: data.customerPhone,
-  telegram: data.customerTelegram || "Не указан",
+  name: String(data.customerName || "Не указано"),
+  phone: String(data.customerPhone || "Не указан"),
+  telegram: String(data.customerTelegram || "Не указан"),
 
-  product: data.productName,
+  product: String(data.productName || "Не указан"),
 
-  size: data.size || "Не выбран",
-  color: data.color || "Не выбран",
+  size: String(data.size || "Не выбран"),
+  color: String(data.color || "Не выбран"),
 
-  price: data.finalPrice ?? data.price ?? 0,
-  promocode: data.promocode || "Нет",
+  price: String(data.finalPrice ?? data.price ?? 0),
+  promocode: String(data.promocode || "Нет"),
 
-  comment: data.comment || "Без комментария",
+  comment: String(data.comment || "Без комментария"),
 
   timestamp: data.timestamp,
 },
