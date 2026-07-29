@@ -667,9 +667,7 @@ font-medium
               </div>
 
               {/* здесь заканчивается галерея */}
-            </div>
-
-          </motion.div>
+    </motion.div>
         </div>
 
       {related.length > 0 && (
