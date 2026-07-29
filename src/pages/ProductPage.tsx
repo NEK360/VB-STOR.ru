@@ -526,11 +526,12 @@ font-medium
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {/* Если размер не выбран */}
-              {!selectedSize && (
-                <div>
-                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
-                </div>
-              )}
+             <div className="flex items-center gap-3">
+  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+  <p className="text-white text-sm font-medium">
+    Размер уточняется при оформлении заявки
+  </p>
+</div>
 
               {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
@@ -563,12 +564,11 @@ font-medium
             {/* Кнопки */}
             <div className="flex flex-col gap-3">
               <button
-                onClick={handleOrderClick}
-                className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  !selectedSize ? "bg-white/50 text-black/50 cursor-not-allowed" : "bg-white text-black hover:bg-white/90"
+              onClick={() => setOrderOpen(true)}
+               className="w-full py-4 rounded-2xl font-bold text-base bg-white text-black transition-all hover:bg-white/90 hover:scale-[1.01] active:scale-[0.99]"
                 }`}
               >
-                {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Выберите размер"}
+                {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Оставить заявку"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
