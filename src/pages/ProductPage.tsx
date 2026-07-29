@@ -484,7 +484,6 @@ font-medium
     <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
       Размер
     </p>
-)}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {/* Если размер не выбран */}
