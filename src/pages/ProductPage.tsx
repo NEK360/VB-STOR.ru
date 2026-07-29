@@ -69,7 +69,7 @@ export default function ProductPage() {
   const { addViewed } = useRecentlyViewed();
 
   // gallery index
-  const [activePhoto, setActivePhoto] = useState(-1);
+  const [activePhoto, setActivePhoto] = useState(0);
   // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
@@ -77,7 +77,6 @@ export default function ProductPage() {
   const [imgZoomed, setImgZoomed] = useState(false);
   const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [mouseStartX, setMouseStartX] = useState<number | null>(null);
 
   // promo state
   const [promoInput, setPromoInput] = useState("");
@@ -89,7 +88,7 @@ export default function ProductPage() {
     document.title = `${product.name} — VB STORE`;
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
-    setActivePhoto(-1);
+    setActivePhoto(0);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(String(firstAvailable));
@@ -137,8 +136,6 @@ export default function ProductPage() {
   const hasImages = gallery.length > 0;
 
   const galleryLength = gallery.length || 1;
-  const currentPhoto =
-  activePhoto === -1 ? 0 : activePhoto;
 
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
@@ -264,47 +261,25 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
- className="relative aspect-square..."
+ className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
  onTouchStart={handleTouchStart}
  onTouchEnd={handleTouchEnd}
-
- onMouseDown={(e)=>{
-   setMouseStartX(e.clientX);
- }}
-
- onMouseUp={(e)=>{
-
-   if(mouseStartX===null) return;
-
-   const delta=e.clientX-mouseStartX;
-
-   if(delta>50){
-      handlePrevPhoto();
-   }
-
-   if(delta<-50){
-      handleNextPhoto();
-   }
-
-   setMouseStartX(null);
-
- }}
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={gallery[currentPhoto]?.src ?? activePhoto}
+                    key={gallery[activePhoto]?.src ?? activePhoto}
                     initial={{ opacity: 0, scale: 1.02 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     className="w-full h-full"
                   >
-                    {gallery[currentPhoto]?.type === "video" ? (
-                      <video src={gallery[currentPhoto].src} controls className="w-full h-full object-cover" />
+                    {gallery[activePhoto]?.type === "video" ? (
+                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
                     ) : (
                      <img
- src={gallery[currentPhoto]?.src}
+ src={gallery[activePhoto]?.src}
  onClick={() => setImgZoomed(true)}
                         alt={`${product.name} — фото ${activePhoto + 1}`}
                         className="w-full h-full object-cover"
@@ -319,7 +294,30 @@ export default function ProductPage() {
                 </div>
               )}
 
-             
+              {gallery.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevPhoto();
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
+                    aria-label="Предыдущее фото"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextPhoto();
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
+                    aria-label="Следующее фото"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </>
+              )}
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
@@ -327,21 +325,7 @@ export default function ProductPage() {
                 )}
               </div>
             </div>
-            
 
-onMouseUp={(e) => {
-  if (mouseStartX === null) return;
-
-  const delta = e.clientX - mouseStartX;
-
-  if (delta > 50) {
-    handlePrevPhoto();
-  } else if (delta < -50) {
-    handleNextPhoto();
-  }
-
-  setMouseStartX(null);
-}}
             {/* Миниатюры */}
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
@@ -502,7 +486,43 @@ font-medium
       Размер
     </p>
 
-    productUrl: window.location.href,
+    <div className="flex flex-wrap gap-2">
+
+      {product.sizes.map((size) => {
+
+        const available =
+          Number(size.stockOffline ?? 0) > 0 ||
+          Number(size.stockWB ?? 0) > 0;
+
+        const isSelected =
+          String(selectedSize) === String(size.value);
+
+        return (
+          <button
+            key={size.value}
+            onClick={() =>
+              setSelectedSize(String(size.value))
+            }
+            className={`
+              px-4 py-2 rounded-xl border text-sm font-medium transition-all
+
+              ${
+                isSelected
+                  ? "bg-white text-black border-white scale-105"
+                  : available
+                  ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  : "bg-white/5 text-white/30 border-white/10"
+              }
+            `}
+          >
+            {size.value}
+          </button>
+        );
+
+      })}
+
+    </div>
+  </div>
 )}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
@@ -725,32 +745,17 @@ font-medium
       <AnimatePresence>
         {imgZoomed && hasImages && (
           <motion.div
-           initial={{
-  opacity: 0,
-  x: 80
-}}
-
-animate={{
-  opacity: 1,
-  x: 0
-}}
-
-exit={{
-  opacity: 0,
-  x: -80
-}}
-
-transition={{
-  duration: 0.25
-}}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
           >
-            {gallery[currentPhoto]?.type === "video" ? (
-              <video src={gallery[currentPhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
+            {gallery[activePhoto]?.type === "video" ? (
+              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
             ) : (
               <motion.img
-                src={gallery[currentPhoto]?.src}
+                src={gallery[activePhoto]?.src}
                 alt={product.name}
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
