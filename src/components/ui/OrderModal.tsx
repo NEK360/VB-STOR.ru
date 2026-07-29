@@ -10,8 +10,8 @@ import { sanitizeInput, validatePhone } from "../../lib/utils";
 interface OrderModalProps {
   product: Product | null;
   selectedSize: string | null;
-onSizeChange: (size: string) => void;
-  selectedcolor?: string;
+  selectedColor?: string;
+  onSizeChange: (size: string) => void;
   isOpen: boolean;
   onClose: () => void;
   promocode?: string;
@@ -296,44 +296,41 @@ export default function OrderModal({
     )}
   </div>
 
-  <div>
-    <label
-      className="text-white/50 text-xs mb-1.5 block"
-      htmlFor="order-telegram"
-    >
-      Telegram (необязательно)
-    </label>
+ <div>
+  <label
+    className="text-white/50 text-xs mb-1.5 block"
+    htmlFor="order-telegram"
+  >
+    Telegram (необязательно)
+  </label>
 
-    <input
-      id="order-telegram"
-      type="text"
-      value={telegram}
-      onChange={(e) => setTelegram(e.target.value)}
-      placeholder="@username"
-      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm"
-    />
-  </div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-telegram">Telegram (необязательно)</label>
-                      <input
-                        id="order-telegram"
-                        type="text"
-                        value={telegram}
-                        onChange={(e) => setTelegram(e.target.value)}
-                        placeholder="@username"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-comment">Комментарий</label>
-                      <textarea
-                        id="order-comment"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        placeholder={`Товар: ${product.name}${selectedSize ? `\nРазмер: ${selectedSize}` : ""}`}
-                        rows={3}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
-                      />
-                    </div>
+  <input
+    id="order-telegram"
+    type="text"
+    value={telegram}
+    onChange={(e) => setTelegram(e.target.value)}
+    placeholder="@username"
+    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30"
+  />
+</div>
+
+<div>
+  <label
+    className="text-white/50 text-xs mb-1.5 block"
+    htmlFor="order-comment"
+  >
+    Комментарий
+  </label>
+
+  <textarea
+    id="order-comment"
+    value={comment}
+    onChange={(e) => setComment(e.target.value)}
+    placeholder={`Товар: ${product.name}${selectedSize ? `\nРазмер: ${selectedSize}` : ""}`}
+    rows={3}
+    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
+  />
+</div>
 
                     {status === "error" && (
                       <p className="text-red-400 text-sm text-center" role="alert">
