@@ -270,7 +270,6 @@ export default function ProductPage() {
  onMouseDown={(e)=>{
    setMouseStartX(e.clientX);
  }}
-              
 onMouseUp={(e) => {
   if (mouseStartX === null) return;
 
@@ -284,7 +283,6 @@ onMouseUp={(e) => {
 
   setMouseStartX(null);
 }}
-              
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -665,6 +663,7 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
+            </div>
           </motion.div>
         </div>
 
