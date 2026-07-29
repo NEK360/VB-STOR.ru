@@ -11,7 +11,6 @@ interface OrderModalProps {
   product: Product | null;
   selectedSize: string | null;
   selectedColor?: string;
-  onSizeChange: (size: string) => void;
   isOpen: boolean;
   onClose: () => void;
   promocode?: string;
@@ -27,7 +26,6 @@ export default function OrderModal({
   selectedColor,
   isOpen,
   onClose,
-  onSizeChange,
   promocode,
   discount,
   finalPrice,
@@ -38,7 +36,13 @@ export default function OrderModal({
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
+const [modalSize, setModalSize] = useState(selectedSize ?? "");
 
+useEffect(() => {
+  if (isOpen) {
+    setModalSize(selectedSize ?? "");
+  }
+}, [isOpen, selectedSize]);
   const validate = () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Введите ваше имя";
@@ -49,9 +53,9 @@ export default function OrderModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSize) {
-    alert("Выберите размер");
-    return;
+    if (!modalSize) {
+  alert("Выберите размер");
+  return;
 }
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
@@ -76,7 +80,7 @@ export default function OrderModal({
     ? product.images[0]
     : "",
 
-  size: selectedSize,
+  size: modalSize,
   color: selectedColor,
 
   comment: comment ? sanitizeInput(comment) : undefined,
@@ -211,39 +215,44 @@ export default function OrderModal({
                   {/* Form */}
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
-  <div>
-    <label className="text-white/50 text-xs mb-2 block">
-      Размер *
-    </label>
+ <div>
+<label className="text-white/50 text-xs mb-2 block">
+Размер
+</label>
 
-   <select
-  value={selectedSize ?? ""}
-  onChange={(e) => {
-    onSizeChange(e.target.value);
-  }}
-  className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+<select
+value={modalSize}
+onChange={(e)=>setModalSize(e.target.value)}
+className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
 >
-  <option value="">
-    Выберите размер
-  </option>
+<option value="" className="bg-zinc-900">
+Выберите размер
+</option>
 
-  {product.sizes
-    ?.filter(
-      (s) =>
-        s.status !== "unavailable" &&
-        ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-    )
-    .map((s) => (
-      <option
-        key={String(s.value)}
-        value={String(s.value)}
-        className="bg-zinc-900"
-      >
-        {s.value}
-      </option>
-    ))}
+{product.sizes
+.filter(
+(s)=>
+s.status !== "unavailable" &&
+(
+Number(s.stockOffline ?? 0) +
+Number(s.stockWB ?? 0)
+)>0
+)
+.map((s)=>(
+<option
+key={s.value}
+value={String(s.value)}
+className="bg-zinc-900"
+>
+{s.value}
+{Number(s.stockOffline ?? 0)>0
+ ? " — магазин"
+ : " — WB"}
+</option>
+))}
+
 </select>
-  </div>
+</div>
 
   <div>
     <label
