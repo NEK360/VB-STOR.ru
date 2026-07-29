@@ -21,7 +21,6 @@ interface OrderModalProps {
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose, promocode, discount, finalPrice }: OrderModalProps) {
- const [selectedSize, setSelectedSize] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
@@ -39,6 +38,10 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedSize) {
+    alert("Выберите размер");
+    return;
+}
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     if (!product) return;
@@ -296,10 +299,7 @@ const [size, setSize] = useState(selectedSize ?? "");
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
                       />
                     </div>
-if (!selectedSize) {
-    alert("Выберите размер");
-    return;
-}
+
                     {status === "error" && (
                       <p className="text-red-400 text-sm text-center" role="alert">
                         Ошибка отправки. Напишите нам напрямую.
