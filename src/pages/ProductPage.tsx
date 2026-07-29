@@ -731,16 +731,17 @@ font-medium
       )}
       </div>
 
-      <OrderModal
-        product={product}
-        selectedSize={selectedSize ?? undefined}
-        selectedColor={selectedColor}
-        isOpen={orderOpen}
-        onClose={() => setOrderOpen(false)}
-        promocode={appliedPromo ?? undefined}
-        discount={promoPercent}
-        finalPrice={finalPrice}
-      />
+     <OrderModal
+  product={product}
+  selectedSize={selectedSize}
+  onSizeChange={setSelectedSize}
+  selectedColor={selectedColor}
+  isOpen={orderOpen}
+  onClose={() => setOrderOpen(false)}
+  promocode={appliedPromo ?? undefined}
+  discount={promoPercent}
+  finalPrice={finalPrice}
+/>
 
       <AnimatePresence>
         {imgZoomed && hasImages && (
