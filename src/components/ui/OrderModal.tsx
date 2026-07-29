@@ -21,6 +21,7 @@ interface OrderModalProps {
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose, promocode, discount, finalPrice }: OrderModalProps) {
+ const [selectedSize, setSelectedSize] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
@@ -250,6 +251,30 @@ const [size, setSize] = useState(selectedSize ?? "");
                       {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
                     </div>
                     <div>
+                      <label className="block mb-2 text-white/70">
+  Размер
+</label>
+
+<select
+  required
+  value={selectedSize}
+  onChange={(e) => setSelectedSize(e.target.value)}
+  className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+>
+  <option value="">Выберите размер</option>
+
+  {product.sizes
+    .filter(
+      (s) =>
+        s.status !== "unavailable" &&
+        ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
+    )
+    .map((s) => (
+      <option key={s.value} value={s.value}>
+        {s.value}
+      </option>
+    ))}
+</select>
                       <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-telegram">Telegram (необязательно)</label>
                       <input
                         id="order-telegram"
@@ -271,7 +296,10 @@ const [size, setSize] = useState(selectedSize ?? "");
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
                       />
                     </div>
-
+if (!selectedSize) {
+    alert("Выберите размер");
+    return;
+}
                     {status === "error" && (
                       <p className="text-red-400 text-sm text-center" role="alert">
                         Ошибка отправки. Напишите нам напрямую.
