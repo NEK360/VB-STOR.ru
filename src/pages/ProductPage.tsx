@@ -272,23 +272,6 @@ export default function ProductPage() {
    setMouseStartX(e.clientX);
  }}
 
- onMouseUp={(e)=>{
-
-   if(mouseStartX===null) return;
-
-   const delta=e.clientX-mouseStartX;
-
-   if(delta>50){
-      handlePrevPhoto();
-   }
-
-   if(delta<-50){
-      handleNextPhoto();
-   }
-
-   setMouseStartX(null);
-
- }}
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -502,7 +485,6 @@ font-medium
       Размер
     </p>
 
-    productUrl: window.location.href,
 )}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
