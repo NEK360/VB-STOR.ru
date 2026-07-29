@@ -90,8 +90,7 @@ export default function ProductPage() {
     analytics.viewProduct(product.id, product.name, product.price);
     setActivePhoto(0);
     // select first available size by default
-    const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
-    setSelectedSize(String(firstAvailable));
+    setSelectedSize(null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
