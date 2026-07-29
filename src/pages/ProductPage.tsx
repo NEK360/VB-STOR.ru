@@ -566,7 +566,6 @@ font-medium
               <button
               onClick={() => setOrderOpen(true)}
                className="w-full py-4 rounded-2xl font-bold text-base bg-white text-black transition-all hover:bg-white/90 hover:scale-[1.01] active:scale-[0.99]"
-                }`}
               >
                 {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Оставить заявку"}
               </button>
