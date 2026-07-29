@@ -669,7 +669,7 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
-
+ </div>
               {/* здесь заканчивается галерея */}
     </motion.div>
         </div>
