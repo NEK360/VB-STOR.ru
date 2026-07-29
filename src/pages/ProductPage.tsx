@@ -302,7 +302,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-             
+            
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
