@@ -9,8 +9,8 @@ import { sanitizeInput, validatePhone } from "../../lib/utils";
 
 interface OrderModalProps {
   product: Product | null;
-  selectedSize?: string;
-  selectedColor?: string;
+  selectedSize: string | null;
+onSizeChange: (size: string) => void;
   isOpen: boolean;
   onClose: () => void;
   promocode?: string;
@@ -20,7 +20,17 @@ interface OrderModalProps {
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose, promocode, discount, finalPrice }: OrderModalProps) {
+export default function OrderModal({
+  product,
+  selectedSize,
+  selectedColor,
+  isOpen,
+  onClose,
+  onSizeChange,
+  promocode,
+  discount,
+  finalPrice,
+}: OrderModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
@@ -230,10 +240,33 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
                       {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
                     </div>
                     <div>
-                     <div className="mb-4">
+                    <div className="mb-4">
   <label className="text-white/50 text-xs mb-2 block">
     Размер
   </label>
+
+  <select
+    value={selectedSize ?? ""}
+    onChange={(e) => onSizeChange(e.target.value)}
+    className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+  >
+    {product.sizes
+      .filter(
+        s =>
+          s.status !== "unavailable" &&
+          ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
+      )
+      .map(s => (
+        <option
+          key={s.value}
+          value={s.value}
+          className="bg-zinc-900"
+        >
+          {s.value}
+        </option>
+      ))}
+  </select>
+</div>
 
   <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white">
     {selectedSize ?? "Не выбран"}
