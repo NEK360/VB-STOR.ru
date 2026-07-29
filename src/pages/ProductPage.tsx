@@ -694,7 +694,6 @@ font-medium
           </div>
         </section>
       )}
-      </div>
 
       <OrderModal
         product={product}
