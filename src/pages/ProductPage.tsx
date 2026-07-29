@@ -69,7 +69,7 @@ export default function ProductPage() {
   const { addViewed } = useRecentlyViewed();
 
   // gallery index
-  const [activePhoto, setActivePhoto] = useState(0);
+  const [activePhoto, setActivePhoto] = useState(-1);
   // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
@@ -89,7 +89,7 @@ export default function ProductPage() {
     document.title = `${product.name} — VB STORE`;
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
-    setActivePhoto(0);
+    setActivePhoto(-1);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(String(firstAvailable));
@@ -137,10 +137,9 @@ export default function ProductPage() {
   const hasImages = gallery.length > 0;
 
   const galleryLength = gallery.length || 1;
- const currentPhoto = Math.max(
-  0,
-  Math.min(activePhoto, gallery.length - 1)
-);
+  const currentPhoto =
+  activePhoto === -1 ? 0 : activePhoto;
+
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
   }, [galleryLength]);
@@ -265,27 +264,31 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
-  className="relative aspect-square overflow-hidden rounded-3xl"
-  onTouchStart={handleTouchStart}
-  onTouchEnd={handleTouchEnd}
-  onMouseDown={(e)=>{
-    setMouseStartX(e.clientX);
-  }}
-  onMouseUp={(e)=>{
-    if(mouseStartX === null) return;
+ className="relative aspect-square..."
+ onTouchStart={handleTouchStart}
+ onTouchEnd={handleTouchEnd}
 
-    const delta = e.clientX - mouseStartX;
+ onMouseDown={(e)=>{
+   setMouseStartX(e.clientX);
+ }}
 
-    if(delta > 50){
+ onMouseUp={(e)=>{
+
+   if(mouseStartX===null) return;
+
+   const delta=e.clientX-mouseStartX;
+
+   if(delta>50){
       handlePrevPhoto();
-    }
+   }
 
-    if(delta < -50){
+   if(delta<-50){
       handleNextPhoto();
-    }
+   }
 
-    setMouseStartX(null);
-  }}
+   setMouseStartX(null);
+
+ }}
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -316,7 +319,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-            
+             
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
@@ -324,8 +327,21 @@ export default function ProductPage() {
                 )}
               </div>
             </div>
+            
 
+onMouseUp={(e) => {
+  if (mouseStartX === null) return;
 
+  const delta = e.clientX - mouseStartX;
+
+  if (delta > 50) {
+    handlePrevPhoto();
+  } else if (delta < -50) {
+    handleNextPhoto();
+  }
+
+  setMouseStartX(null);
+}}
             {/* Миниатюры */}
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
@@ -340,7 +356,7 @@ export default function ProductPage() {
                       i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
-                    aria-pressed={false}
+                    aria-pressed={i === activePhoto}
                   >
                     {item.type === "video" ? (
                       <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
@@ -350,8 +366,7 @@ export default function ProductPage() {
                   </button>
                 ))}
               </div>
-           )}
-            </div>
+            )}
           </div>
 
           <motion.div
@@ -480,32 +495,25 @@ font-medium
               </div>
             )}
 
-           {/* Размеры */}
+            {/* Размеры */}
 {product.sizes.length > 0 && (
   <div className="mb-8">
-
     <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
       Размер
     </p>
 
-    <select
-      value={selectedSize ?? ""}
-      onChange={(e) => setSelectedSize(e.target.value)}
-      className="w-full rounded-2xl bg-[#181818] border border-white/10 px-4 py-4 text-white"
-    >
-      {product.sizes.map((size) => (
-        <option
-          key={size.value}
-          value={size.value}
-          disabled={size.status === "unavailable"}
-        >
-          {size.value}
-        </option>
-      ))}
-    </select>
+    productUrl: window.location.href,
+)}
+            {/* Наличие по выбранному размеру */}
+            <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
+              {/* Если размер не выбран */}
+              {!selectedSize && (
+                <div>
+                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
+                </div>
+              )}
 
-    <div className="glass rounded-2xl p-4 mb-6 border border-white/8"> 
-    {selectedSize && shopQty > 0 && (
+              {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
@@ -600,11 +608,7 @@ font-medium
                 <MessageCircle size={16} />
                 MAX
               </a>
-           </div>  
-
-          </div>     
-
-)}
+            </div>
 
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
               <div className="rounded-2xl border border-white/8 bg-white/4">
@@ -681,8 +685,8 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
- </div>
-    </motion.div>
+         </div> 
+          </motion.div>
         </div>
 
       {related.length > 0 && (
@@ -705,6 +709,7 @@ font-medium
           </div>
         </section>
       )}
+      </div>
 
       <OrderModal
         product={product}
