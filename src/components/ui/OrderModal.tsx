@@ -216,32 +216,33 @@ export default function OrderModal({
       Размер *
     </label>
 
-    <select
-      value={selectedSize ?? ""}
-      onChange={(e) => onSizeChange(e.target.value)}
-      required
-      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white"
-    >
-      <option value="" className="bg-zinc-900">
-        Выберите размер
-      </option>
+   <select
+  value={selectedSize ?? ""}
+  onChange={(e) => {
+    onSizeChange(e.target.value);
+  }}
+  className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+>
+  <option value="">
+    Выберите размер
+  </option>
 
-      {product.sizes
-        .filter(
-          (s) =>
-            s.status !== "unavailable" &&
-            ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-        )
-        .map((s) => (
-          <option
-            key={s.value}
-            value={String(s.value)}
-            className="bg-zinc-900"
-          >
-            {s.value}
-          </option>
-        ))}
-    </select>
+  {product.sizes
+    ?.filter(
+      (s) =>
+        s.status !== "unavailable" &&
+        ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
+    )
+    .map((s) => (
+      <option
+        key={String(s.value)}
+        value={String(s.value)}
+        className="bg-zinc-900"
+      >
+        {s.value}
+      </option>
+    ))}
+</select>
   </div>
 
   <div>
