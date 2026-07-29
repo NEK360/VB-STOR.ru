@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MessageCircle, Send, Check, Loader, Phone } from "lucide-react";
 import { type Product } from "../../lib/api";
