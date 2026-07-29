@@ -78,7 +78,6 @@ export default function ProductPage() {
   const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [mouseStartX, setMouseStartX] = useState<number | null>(null);
-            onMouseDown={(e) => setMouseStartX(e.clientX)}
 
   // promo state
   const [promoInput, setPromoInput] = useState("");
