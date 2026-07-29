@@ -263,26 +263,27 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
- className="relative aspect-square..."
- onTouchStart={handleTouchStart}
- onTouchEnd={handleTouchEnd}
+  className="relative aspect-square overflow-hidden rounded-3xl"
+  onTouchStart={handleTouchStart}
+  onTouchEnd={handleTouchEnd}
+  onMouseDown={(e)=>{
+    setMouseStartX(e.clientX);
+  }}
+  onMouseUp={(e)=>{
+    if(mouseStartX === null) return;
 
- onMouseDown={(e)=>{
-   setMouseStartX(e.clientX);
- }}
-onMouseUp={(e) => {
-  if (mouseStartX === null) return;
+    const delta = e.clientX - mouseStartX;
 
-  const delta = e.clientX - mouseStartX;
+    if(delta > 50){
+      handlePrevPhoto();
+    }
 
-  if (delta > 50) {
-    handlePrevPhoto();
-  } else if (delta < -50) {
-    handleNextPhoto();
-  }
+    if(delta < -50){
+      handleNextPhoto();
+    }
 
-  setMouseStartX(null);
-}}
+    setMouseStartX(null);
+  }}
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -663,7 +664,10 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* здесь заканчивается галерея */}
             </div>
+
           </motion.div>
         </div>
 
