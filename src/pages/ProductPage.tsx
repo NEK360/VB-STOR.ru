@@ -588,11 +588,11 @@ font-medium
                 <MessageCircle size={16} />
                 MAX
               </a>
-           </div>   {/* конец flex flex-col gap-3 */}
+           </div>  
 
-          </div>     {/* конец блока размеров */}
+          </div>     
 
-)}                  {/* закрываем {product.sizes.length > 0 && ( */}
+)}
 
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
               <div className="rounded-2xl border border-white/8 bg-white/4">
