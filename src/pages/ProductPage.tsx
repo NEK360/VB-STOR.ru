@@ -1,3 +1,4 @@
+import ProductGallery from "../components/product/ProductGallery";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,15 +70,13 @@ export default function ProductPage() {
   const { addViewed } = useRecentlyViewed();
 
   // gallery index
-  const [activePhoto, setActivePhoto] = useState(0);
+  
   // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [orderOpen, setOrderOpen] = useState(false);
   const [imgZoomed, setImgZoomed] = useState(false);
   const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [mouseStartX, setMouseStartX] = useState<number | null>(null);
 
   // promo state
   const [promoInput, setPromoInput] = useState("");
@@ -141,20 +140,6 @@ export default function ProductPage() {
   0,
   Math.min(activePhoto, gallery.length - 1)
 );
-  const handlePrevPhoto = useCallback(() => {
-    setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
-  }, [galleryLength]);
-
-  const handleNextPhoto = useCallback(() => {
-    setActivePhoto((prev) => (prev === galleryLength - 1 ? 0 : prev + 1));
-  }, [galleryLength]);
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    setTouchStartX(event.touches[0]?.clientX ?? null);
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null) return;
 
     const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
     if (delta > 50) {
@@ -262,68 +247,16 @@ export default function ProductPage() {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-          {/* Галерея */}
-          <div className="space-y-4">
-            <div
-  className="relative aspect-square overflow-hidden rounded-3xl"
-  onTouchStart={handleTouchStart}
-  onTouchEnd={handleTouchEnd}
-  onMouseDown={(e)=>{
-    setMouseStartX(e.clientX);
-  }}
-  onMouseUp={(e)=>{
-    if(mouseStartX === null) return;
+         {/* Галерея */}
 
-    const delta = e.clientX - mouseStartX;
+<div className="space-y-4">
 
-    if(delta > 50){
-      handlePrevPhoto();
-    }
+  <ProductGallery
+    gallery={gallery}
+    productName={product.name}
+  />
 
-    if(delta < -50){
-      handleNextPhoto();
-    }
-
-    setMouseStartX(null);
-  }}
->
-              {hasImages ? (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={gallery[currentPhoto]?.src ?? activePhoto}
-                    initial={{ opacity: 0, scale: 1.02 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full h-full"
-                  >
-                    {gallery[currentPhoto]?.type === "video" ? (
-                      <video src={gallery[currentPhoto].src} controls className="w-full h-full object-cover" />
-                    ) : (
-                     <img
- src={gallery[currentPhoto]?.src}
- onClick={() => setImgZoomed(true)}
-                        alt={`${product.name} — фото ${activePhoto + 1}`}
-                        className="w-full h-full object-cover"
-                        loading={activePhoto === 0 ? "eager" : "lazy"}
-                      />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/10">
-                  <span className="text-7xl">📦</span>
-                </div>
-              )}
-
-            
-
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
-                {product.isNew && (
-                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
-                )}
-              </div>
-            </div>
+</div>
 
 
             {/* Миниатюры */}
