@@ -69,7 +69,7 @@ export default function ProductPage() {
   const { addViewed } = useRecentlyViewed();
 
   // gallery index
-  const [activePhoto, setActivePhoto] = useState(-1);
+  const [activePhoto, setActivePhoto] = useState(0);
   // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
@@ -137,8 +137,7 @@ export default function ProductPage() {
   const hasImages = gallery.length > 0;
 
   const galleryLength = gallery.length || 1;
-  const currentPhoto =
-  activePhoto === -1 ? 0 : activePhoto;
+  const currentPhoto = activePhoto
 
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
@@ -271,7 +270,21 @@ export default function ProductPage() {
  onMouseDown={(e)=>{
    setMouseStartX(e.clientX);
  }}
+              
+onMouseUp={(e) => {
+  if (mouseStartX === null) return;
 
+  const delta = e.clientX - mouseStartX;
+
+  if (delta > 50) {
+    handlePrevPhoto();
+  } else if (delta < -50) {
+    handleNextPhoto();
+  }
+
+  setMouseStartX(null);
+}}
+              
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -312,19 +325,7 @@ export default function ProductPage() {
             </div>
             
 
-onMouseUp={(e) => {
-  if (mouseStartX === null) return;
 
-  const delta = e.clientX - mouseStartX;
-
-  if (delta > 50) {
-    handlePrevPhoto();
-  } else if (delta < -50) {
-    handleNextPhoto();
-  }
-
-  setMouseStartX(null);
-}}
             {/* Миниатюры */}
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
