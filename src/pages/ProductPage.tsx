@@ -141,7 +141,6 @@ export default function ProductPage() {
   0,
   Math.min(activePhoto, gallery.length - 1)
 );
-
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
   }, [galleryLength]);
@@ -481,13 +480,32 @@ font-medium
               </div>
             )}
 
-            {/* Размеры */}
-const currentPhoto = Math.max(
-  0,
-  Math.min(activePhoto, gallery.length - 1)
-);
+           {/* Размеры */}
+{product.sizes.length > 0 && (
+  <div className="mb-8">
 
-              {selectedSize && shopQty > 0 && (
+    <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+      Размер
+    </p>
+
+    <select
+      value={selectedSize ?? ""}
+      onChange={(e) => setSelectedSize(e.target.value)}
+      className="w-full rounded-2xl bg-[#181818] border border-white/10 px-4 py-4 text-white"
+    >
+      {product.sizes.map((size) => (
+        <option
+          key={size.value}
+          value={size.value}
+          disabled={size.status === "unavailable"}
+        >
+          {size.value}
+        </option>
+      ))}
+    </select>
+
+    <div className="glass rounded-2xl p-4 mb-6 border border-white/8"> 
+    {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
@@ -664,7 +682,6 @@ const currentPhoto = Math.max(
                 </AnimatePresence>
               </div>
  </div>
-              {/* здесь заканчивается галерея */}
     </motion.div>
         </div>
 
