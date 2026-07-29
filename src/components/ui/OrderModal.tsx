@@ -209,6 +209,33 @@ export default function OrderModal({
 
                   {/* Form */}
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+                        <div>
+  <label className="text-white/50 text-xs mb-2 block">
+    Размер
+  </label>
+
+  <select
+    value={selectedSize ?? ""}
+    onChange={(e) => onSizeChange(e.target.value)}
+    className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+  >
+    {product.sizes
+      .filter(
+        s =>
+          s.status !== "unavailable" &&
+          ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
+      )
+      .map(s => (
+        <option
+          key={s.value}
+          value={s.value}
+          className="bg-zinc-900"
+        >
+          {s.value}
+        </option>
+      ))}
+  </select>
+</div>
                     <div>
                       <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-name">Ваше имя *</label>
                       <input
@@ -240,33 +267,7 @@ export default function OrderModal({
                       {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
                     </div>
                     <div>
-                    <div className="mb-4">
-  <label className="text-white/50 text-xs mb-2 block">
-    Размер
-  </label>
-
-  <select
-    value={selectedSize ?? ""}
-    onChange={(e) => onSizeChange(e.target.value)}
-    className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
-  >
-    {product.sizes
-      .filter(
-        s =>
-          s.status !== "unavailable" &&
-          ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-      )
-      .map(s => (
-        <option
-          key={s.value}
-          value={s.value}
-          className="bg-zinc-900"
-        >
-          {s.value}
-        </option>
-      ))}
-  </select>
-</div>
+                
 
   <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white">
     {selectedSize ?? "Не выбран"}
