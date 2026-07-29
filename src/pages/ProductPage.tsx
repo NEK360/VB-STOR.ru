@@ -734,8 +734,8 @@ font-medium
      <OrderModal
   product={product}
   selectedSize={selectedSize}
-  onSizeChange={setSelectedSize}
   selectedColor={selectedColor}
+  onSizeChange={setSelectedSize}
   isOpen={orderOpen}
   onClose={() => setOrderOpen(false)}
   promocode={appliedPromo ?? undefined}
