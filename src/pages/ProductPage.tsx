@@ -322,7 +322,7 @@ onMouseUp={(e) => {
                   <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
                 )}
               </div>
-            
+            </div>
 
 
             {/* Миниатюры */}
@@ -665,7 +665,6 @@ font-medium
                   )}
                 </AnimatePresence>
               </div>
-         </div> 
           </motion.div>
         </div>
 
