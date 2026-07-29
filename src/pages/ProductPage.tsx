@@ -77,6 +77,8 @@ export default function ProductPage() {
   const [imgZoomed, setImgZoomed] = useState(false);
   const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [mouseStartX, setMouseStartX] = useState<number | null>(null);
+            onMouseDown={(e) => setMouseStartX(e.clientX)}
 
   // promo state
   const [promoInput, setPromoInput] = useState("");
@@ -136,6 +138,8 @@ export default function ProductPage() {
   const hasImages = gallery.length > 0;
 
   const galleryLength = gallery.length || 1;
+  const currentPhoto =
+  activePhoto === -1 ? 0 : activePhoto;
 
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
@@ -261,25 +265,47 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
- className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
+ className="relative aspect-square..."
  onTouchStart={handleTouchStart}
  onTouchEnd={handleTouchEnd}
+
+ onMouseDown={(e)=>{
+   setMouseStartX(e.clientX);
+ }}
+
+ onMouseUp={(e)=>{
+
+   if(mouseStartX===null) return;
+
+   const delta=e.clientX-mouseStartX;
+
+   if(delta>50){
+      handlePrevPhoto();
+   }
+
+   if(delta<-50){
+      handleNextPhoto();
+   }
+
+   setMouseStartX(null);
+
+ }}
 >
               {hasImages ? (
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={gallery[activePhoto]?.src ?? activePhoto}
+                    key={gallery[currentPhoto]?.src ?? activePhoto}
                     initial={{ opacity: 0, scale: 1.02 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     className="w-full h-full"
                   >
-                    {gallery[activePhoto]?.type === "video" ? (
-                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
+                    {gallery[currentPhoto]?.type === "video" ? (
+                      <video src={gallery[currentPhoto].src} controls className="w-full h-full object-cover" />
                     ) : (
                      <img
- src={gallery[activePhoto]?.src}
+ src={gallery[currentPhoto]?.src}
  onClick={() => setImgZoomed(true)}
                         alt={`${product.name} — фото ${activePhoto + 1}`}
                         className="w-full h-full object-cover"
@@ -303,8 +329,7 @@ export default function ProductPage() {
               </div>
             </div>
             
-const [mouseStartX, setMouseStartX] = useState<number | null>(null);
-            onMouseDown={(e) => setMouseStartX(e.clientX)}
+
 onMouseUp={(e) => {
   if (mouseStartX === null) return;
 
@@ -722,11 +747,11 @@ transition={{
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
           >
-            {gallery[activePhoto]?.type === "video" ? (
-              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
+            {gallery[currentPhoto]?.type === "video" ? (
+              <video src={gallery[currentPhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
             ) : (
               <motion.img
-                src={gallery[activePhoto]?.src}
+                src={gallery[currentPhoto]?.src}
                 alt={product.name}
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
