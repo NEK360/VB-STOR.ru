@@ -193,6 +193,78 @@ export default function ProductGallery({
               shrink-0
               ${
                 index===activePhoto
+                ?
+                "border-white"
+                :
+                "border-white/10"
+              }
+              `}
+            >
+
+              {item.type==="video" ? (
+
+                <div className="
+                w-full
+                h-full
+                bg-black/50
+                flex
+                items-center
+                justify-center
+                text-white
+                ">
+                  ▶
+                </div>
+
+              ):(
+
+                <img
+                  src={item.src}
+                  className="w-full h-full object-cover"
+                />
+
+              )}
+
+            </button>
+
+          ))}
+
+        </div>
+
+      )}
+
+      {zoom && (
+
+        <div
+          onClick={()=>setZoom(false)}
+          className="
+          fixed
+          inset-0
+          z-[500]
+          bg-black/95
+          flex
+          items-center
+          justify-center
+          p-5
+          "
+        >
+
+          <img
+            src={current.src}
+            className="
+            max-w-full
+            max-h-full
+            object-contain
+            rounded-2xl
+            "
+          />
+
+        </div>
+
+      )}
+
+    </>
+  );
+}
                 >
               ‹
             </button>
