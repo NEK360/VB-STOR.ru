@@ -11,6 +11,7 @@ interface OrderModalProps {
   product: Product | null;
   selectedSize: string | null;
 onSizeChange: (size: string) => void;
+  selectedcolor?: string;
   isOpen: boolean;
   onClose: () => void;
   promocode?: string;
@@ -208,71 +209,110 @@ export default function OrderModal({
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-                        <div>
-  <label className="text-white/50 text-xs mb-2 block">
-    Размер
-  </label>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
-  <select
-    value={selectedSize ?? ""}
-    onChange={(e) => onSizeChange(e.target.value)}
-    className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
-  >
-    {product.sizes
-      .filter(
-        s =>
-          s.status !== "unavailable" &&
-          ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-      )
-      .map(s => (
-        <option
-          key={s.value}
-          value={s.value}
-          className="bg-zinc-900"
-        >
-          {s.value}
-        </option>
-      ))}
-  </select>
-</div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-name">Ваше имя *</label>
-                      <input
-                        id="order-name"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Иван"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.name ? "border-red-400" : "border-white/10"}`}
-                        aria-required="true"
-                        aria-invalid={!!errors.name}
-                        aria-describedby={errors.name ? "name-error" : undefined}
-                      />
-                      {errors.name && <p id="name-error" className="text-red-400 text-xs mt-1" role="alert">{errors.name}</p>}
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-phone">Телефон *</label>
-                      <input
-                        id="order-phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+7 900 000-00-00"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.phone ? "border-red-400" : "border-white/10"}`}
-                        aria-required="true"
-                        aria-invalid={!!errors.phone}
-                        aria-describedby={errors.phone ? "phone-error" : undefined}
-                      />
-                      {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
-                    </div>
-                    <div>
-                
+  <div>
+    <label className="text-white/50 text-xs mb-2 block">
+      Размер *
+    </label>
 
-  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white">
-    {selectedSize ?? "Не выбран"}
+    <select
+      value={selectedSize ?? ""}
+      onChange={(e) => onSizeChange(e.target.value)}
+      required
+      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white"
+    >
+      <option value="" className="bg-zinc-900">
+        Выберите размер
+      </option>
+
+      {product.sizes
+        .filter(
+          (s) =>
+            s.status !== "unavailable" &&
+            ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
+        )
+        .map((s) => (
+          <option
+            key={s.value}
+            value={String(s.value)}
+            className="bg-zinc-900"
+          >
+            {s.value}
+          </option>
+        ))}
+    </select>
   </div>
-</div>
+
+  <div>
+    <label
+      className="text-white/50 text-xs mb-1.5 block"
+      htmlFor="order-name"
+    >
+      Ваше имя *
+    </label>
+
+    <input
+      id="order-name"
+      type="text"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      placeholder="Иван"
+      className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none ${
+        errors.name ? "border-red-400" : "border-white/10"
+      }`}
+    />
+
+    {errors.name && (
+      <p className="text-red-400 text-xs mt-1">
+        {errors.name}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label
+      className="text-white/50 text-xs mb-1.5 block"
+      htmlFor="order-phone"
+    >
+      Телефон *
+    </label>
+
+    <input
+      id="order-phone"
+      type="tel"
+      value={phone}
+      onChange={(e) => setPhone(e.target.value)}
+      placeholder="+7 900 000-00-00"
+      className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none ${
+        errors.phone ? "border-red-400" : "border-white/10"
+      }`}
+    />
+
+    {errors.phone && (
+      <p className="text-red-400 text-xs mt-1">
+        {errors.phone}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label
+      className="text-white/50 text-xs mb-1.5 block"
+      htmlFor="order-telegram"
+    >
+      Telegram (необязательно)
+    </label>
+
+    <input
+      id="order-telegram"
+      type="text"
+      value={telegram}
+      onChange={(e) => setTelegram(e.target.value)}
+      placeholder="@username"
+      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm"
+    />
+  </div>
                       <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-telegram">Telegram (необязательно)</label>
                       <input
                         id="order-telegram"
