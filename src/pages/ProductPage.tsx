@@ -89,7 +89,7 @@ export default function ProductPage() {
     document.title = `${product.name} — VB STORE`;
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
-    setActivePhoto(-1);
+    setActivePhoto(0);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(String(firstAvailable));
@@ -137,7 +137,10 @@ export default function ProductPage() {
   const hasImages = gallery.length > 0;
 
   const galleryLength = gallery.length || 1;
-  const currentPhoto = activePhoto
+ const currentPhoto = Math.max(
+  0,
+  Math.min(activePhoto, gallery.length - 1)
+);
 
   const handlePrevPhoto = useCallback(() => {
     setActivePhoto((prev) => (prev === 0 ? galleryLength - 1 : prev - 1));
@@ -338,7 +341,7 @@ export default function ProductPage() {
                       i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
-                    aria-pressed={i === activePhoto}
+                    aria-pressed={false}
                   >
                     {item.type === "video" ? (
                       <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
@@ -479,19 +482,10 @@ font-medium
             )}
 
             {/* Размеры */}
-{product.sizes.length > 0 && (
-  <div className="mb-8">
-    <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-      Размер
-    </p>
-            {/* Наличие по выбранному размеру */}
-            <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
-              {/* Если размер не выбран */}
-              {!selectedSize && (
-                <div>
-                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
-                </div>
-              )}
+const currentPhoto = Math.max(
+  0,
+  Math.min(activePhoto, gallery.length - 1)
+);
 
               {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
