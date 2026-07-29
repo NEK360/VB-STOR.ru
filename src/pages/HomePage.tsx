@@ -67,6 +67,25 @@ export default function HomePage() {
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
+          <div className="flex justify-center mt-10 mb-20">
+  <Link
+    to="/catalog"
+    className="
+      inline-flex items-center justify-center
+      px-8 py-4
+      rounded-2xl
+      bg-white text-black
+      font-bold text-sm
+      uppercase tracking-wider
+      transition-all
+      hover:bg-white/90
+      hover:scale-[1.03]
+      active:scale-[0.98]
+    "
+  >
+    Смотреть ещё
+  </Link>
+</div>
         </section>
       )}
 
