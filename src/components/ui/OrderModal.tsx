@@ -77,10 +77,6 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
   discount: discount ?? 0,
   finalPrice: finalPrice ?? product.price,
 } as const;
-const [size, setSize] = useState(selectedSize ?? "");
-      useEffect(() => {
-  setSize(selectedSize ?? "");
-}, [selectedSize]);
       
       const success = await sendOrderEmail(orderPayload as any);
 
@@ -202,26 +198,6 @@ const [size, setSize] = useState(selectedSize ?? "");
                   </div>
 
                   {/* Form */}
-                  <select
-  value={size}
-  onChange={(e) => setSize(e.target.value)}
-  required
-  className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
->
-  <option value="">Выберите размер</option>
-
-  {product.sizes
-    .filter(
-      (s) =>
-        s.status !== "unavailable" &&
-        ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-    )
-    .map((s) => (
-      <option key={s.value} value={s.value}>
-        {s.value}
-      </option>
-    ))}
-</select>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
                     <div>
                       <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-name">Ваше имя *</label>
@@ -254,30 +230,15 @@ const [size, setSize] = useState(selectedSize ?? "");
                       {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
                     </div>
                     <div>
-                      <label className="block mb-2 text-white/70">
-  Размер
-</label>
+                     <div className="mb-4">
+  <label className="text-white/50 text-xs mb-2 block">
+    Размер
+  </label>
 
-<select
-  required
-  value={selectedSize}
-  onChange={(e) => setSelectedSize(e.target.value)}
-  className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
->
-  <option value="">Выберите размер</option>
-
-  {product.sizes
-    .filter(
-      (s) =>
-        s.status !== "unavailable" &&
-        ((s.stockOffline ?? 0) + (s.stockWB ?? 0) > 0)
-    )
-    .map((s) => (
-      <option key={s.value} value={s.value}>
-        {s.value}
-      </option>
-    ))}
-</select>
+  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white">
+    {selectedSize ?? "Не выбран"}
+  </div>
+</div>
                       <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-telegram">Telegram (необязательно)</label>
                       <input
                         id="order-telegram"
