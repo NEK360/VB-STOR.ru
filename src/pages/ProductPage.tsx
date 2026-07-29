@@ -69,7 +69,7 @@ export default function ProductPage() {
   const { addViewed } = useRecentlyViewed();
 
   // gallery index
-  const [activePhoto, setActivePhoto] = useState(0);
+  const [activePhoto, setActivePhoto] = useState(-1);
   // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
@@ -88,7 +88,7 @@ export default function ProductPage() {
     document.title = `${product.name} — VB STORE`;
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
-    setActivePhoto(0);
+    setActivePhoto(-1);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(String(firstAvailable));
@@ -294,30 +294,7 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {gallery.length > 1 && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePrevPhoto();
-                    }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
-                    aria-label="Предыдущее фото"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleNextPhoto();
-                    }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 hover:bg-white/20 flex items-center justify-center text-white transition-all z-10"
-                    aria-label="Следующее фото"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </>
-              )}
+             
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
@@ -325,7 +302,22 @@ export default function ProductPage() {
                 )}
               </div>
             </div>
+            
+const [mouseStartX, setMouseStartX] = useState<number | null>(null);
+            onMouseDown={(e) => setMouseStartX(e.clientX)}
+onMouseUp={(e) => {
+  if (mouseStartX === null) return;
 
+  const delta = e.clientX - mouseStartX;
+
+  if (delta > 50) {
+    handlePrevPhoto();
+  } else if (delta < -50) {
+    handleNextPhoto();
+  }
+
+  setMouseStartX(null);
+}}
             {/* Миниатюры */}
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
@@ -486,43 +478,7 @@ font-medium
       Размер
     </p>
 
-    <div className="flex flex-wrap gap-2">
-
-      {product.sizes.map((size) => {
-
-        const available =
-          Number(size.stockOffline ?? 0) > 0 ||
-          Number(size.stockWB ?? 0) > 0;
-
-        const isSelected =
-          String(selectedSize) === String(size.value);
-
-        return (
-          <button
-            key={size.value}
-            onClick={() =>
-              setSelectedSize(String(size.value))
-            }
-            className={`
-              px-4 py-2 rounded-xl border text-sm font-medium transition-all
-
-              ${
-                isSelected
-                  ? "bg-white text-black border-white scale-105"
-                  : available
-                  ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                  : "bg-white/5 text-white/30 border-white/10"
-              }
-            `}
-          >
-            {size.value}
-          </button>
-        );
-
-      })}
-
-    </div>
-  </div>
+    productUrl: window.location.href,
 )}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
@@ -745,9 +701,24 @@ font-medium
       <AnimatePresence>
         {imgZoomed && hasImages && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+           initial={{
+  opacity: 0,
+  x: 80
+}}
+
+animate={{
+  opacity: 1,
+  x: 0
+}}
+
+exit={{
+  opacity: 0,
+  x: -80
+}}
+
+transition={{
+  duration: 0.25
+}}
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
           >
