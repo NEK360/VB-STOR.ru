@@ -345,7 +345,10 @@ export async function preloadProduct(id: string): Promise<void> {
 
 export async function getProductById(id: string): Promise<Product | undefined> {
   const products = await loadProducts();
-
+console.log({
+  gender: p.gender,
+  article: p.article,
+});
   return products.find((p) => String(p.id) === String(id));
 }
 
