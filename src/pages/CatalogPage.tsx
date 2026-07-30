@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, RotateCcw } from "lucide-react";
-import { categories } from "../store-data/categories";
 import { seo } from "../store-data/seo";
 import ProductCard from "../components/ui/ProductCard";
 import { loadProducts, type Product } from "../lib/api";
@@ -86,6 +85,17 @@ export default function CatalogPage() {
 
     return Array.from(new Set(values));
   }, [products]);
+  
+  const categories = useMemo(() => {
+
+  const values = products
+    .map(product => product.category)
+    .filter(Boolean)
+    .map(category => category.trim());
+
+  return [...new Set(values)].sort();
+
+}, [products]);
 
   const filtered = useMemo<Product[]>(() => {
     let list = [...products];
@@ -98,8 +108,12 @@ export default function CatalogPage() {
     const normalize = (value: string) => value.trim().toLowerCase();
 
     if (selectedCategory !== "all") {
-      list = list.filter((p) => normalize(p.category).includes(normalize(selectedCategory)) || normalize(p.category) === normalize(selectedCategory));
-    }
+
+  list = list.filter(
+    p => normalize(p.category) === normalize(selectedCategory)
+  );
+
+}
 
     if (selectedBrand !== "all") {
       list = list.filter((p) => normalize(p.brand) === normalize(selectedBrand));
@@ -226,20 +240,31 @@ export default function CatalogPage() {
                   <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">Категория</label>
                   <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
                     <button
-                      onClick={() => handleCategoryChange("all")}
-                      className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedCategory === "all" ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
-                    >
-                      Все категории
-                    </button>
-                    {categories.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => handleCategoryChange(cat.slug)}
-                        className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${selectedCategory === cat.slug ? "bg-white/15 text-white" : "text-white/50 hover:text-white hover:bg-white/8"}`}
-                      >
-                        {cat.icon} {cat.name}
-                      </button>
-                    ))}
+  onClick={() => handleCategoryChange("all")}
+  className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${
+    selectedCategory === "all"
+      ? "bg-white/15 text-white"
+      : "text-white/50 hover:text-white hover:bg-white/8"
+  }`}
+>
+  Все категории
+</button>
+
+{categories.map((category) => (
+
+<button
+  key={category}
+  onClick={() => handleCategoryChange(category)}
+  className={`text-left text-sm px-3 py-2 rounded-lg transition-all ${
+    selectedCategory === category
+      ? "bg-white/15 text-white"
+      : "text-white/50 hover:text-white hover:bg-white/8"
+  }`}
+>
+  {category}
+</button>
+
+))}
                   </div>
                 </div>
 
