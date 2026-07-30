@@ -217,11 +217,11 @@ export default function CatalogPage() {
  "
               aria-label="Сортировка"
             >
-              <option value="default">По умолчанию</option>
-              <option value="price-asc">Цена ↑</option>
-              <option value="price-desc">Цена ↓</option>
-              <option value="rating">По рейтингу</option>
-              <option value="new">Новинки</option>
+              <option value="default" className="bg-black text-white">По умолчанию</option>
+              <option value="price-asc" className="bg-black text-white">Цена ↑</option>
+              <option value="price-desc" className="bg-black text-white">Цена ↓</option>
+              <option value="rating" className="bg-black text-white">По рейтингу</option>
+              <option value="new" className="bg-black text-white">Новинки</option>
             </select>
 
             <button
