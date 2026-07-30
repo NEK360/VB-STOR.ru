@@ -137,7 +137,8 @@ export default function CatalogPage() {
     return list;
   }, [products, filterParam, selectedCategory, selectedBrand, selectedSize, selectedGender, onlyAvailable, priceRange, sort]);
 
-
+  const filterTitle: Record<FilterType, string> = {
+  };
 
   const setFilter = (f: FilterType) => {
     const next = new URLSearchParams(searchParams);
