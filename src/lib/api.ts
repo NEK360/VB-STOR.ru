@@ -125,9 +125,7 @@ function normalizeProduct(p: ProductPayload): Product {
   const hasWBStock = normalizedSizes.some((size) => (size.stockWB ?? 0) > 0);
   const hasOffline = Boolean(p.available) || Boolean(p.offlineOnly) || hasOfflineStock;
   const hasWB = Boolean(p.wbUrl) || Boolean(p.wbOnly) || Boolean(p.bothAvailable) || hasWBStock;
-if (selectedGender !== "all") {
-      list = list.filter((p) => normalize(p.gender) === normalize(selectedGender));
-    }
+  
   return {
     id: String(p.id ?? ""),
     article: String(p.article ?? ""),
@@ -313,11 +311,13 @@ export async function loadProducts(): Promise<Product[]> {
       }
 
       const data = (await res.json()) as ProductPayload[];
+     console.log("API DATA", data[0]);
       if (!Array.isArray(data)) {
         return cacheProducts ?? [];
       }
 
       const normalized = data.map(normalizeProduct);
+      console.log("NORMALIZED", normalized[0]);
       const grouped = groupProducts(normalized);
 
       cacheProducts = grouped;
@@ -351,10 +351,7 @@ export async function getProductById(id: string): Promise<Product | undefined> {
 
 export async function getNewProducts(): Promise<Product[]> {
   const products = await loadProducts();
-console.log({
-  gender: p.gender,
-  article: p.article,
-});
+
   return products.filter((p) => p.isNew);
 }
 
