@@ -125,7 +125,9 @@ function normalizeProduct(p: ProductPayload): Product {
   const hasWBStock = normalizedSizes.some((size) => (size.stockWB ?? 0) > 0);
   const hasOffline = Boolean(p.available) || Boolean(p.offlineOnly) || hasOfflineStock;
   const hasWB = Boolean(p.wbUrl) || Boolean(p.wbOnly) || Boolean(p.bothAvailable) || hasWBStock;
-
+if (selectedGender !== "all") {
+      list = list.filter((p) => normalize(p.gender) === normalize(selectedGender));
+    }
   return {
     id: String(p.id ?? ""),
     article: String(p.article ?? ""),
