@@ -201,10 +201,20 @@ export default function CatalogPage() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 shrink-0">
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              className="bg-white/6 border border-white/10 text-white/60 text-sm px-3 py-2 rounded-xl outline-none appearance-none pr-8 relative cursor-pointer"
+           <select
+ value={sort}
+ onChange={(e)=>setSort(e.target.value as SortOption)}
+ className="
+ bg-black
+ text-white
+ border
+ border-white/10
+ rounded-xl
+ px-4
+ py-2
+ outline-none
+ appearance-none
+ "
               aria-label="Сортировка"
             >
               <option value="default">По умолчанию</option>
