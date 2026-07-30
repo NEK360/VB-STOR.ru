@@ -137,11 +137,6 @@ export default function CatalogPage() {
     return list;
   }, [products, filterParam, selectedCategory, selectedBrand, selectedSize, selectedGender, onlyAvailable, priceRange, sort]);
 
-  const filterTitle: Record<FilterType, string> = {
-    all: "Весь каталог",
-    sale: "Распродажа",
-  };
-
   const setFilter = (f: FilterType) => {
     const next = new URLSearchParams(searchParams);
     if (f === "all") next.delete("filter");
@@ -180,26 +175,14 @@ export default function CatalogPage() {
           className="py-12"
         >
           <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">VB STORE</p>
-          <h1 className="text-white font-black text-4xl md:text-6xl tracking-tight">
-            {filterTitle[filterParam]}
-          </h1>
-          <p className="text-white/30 mt-3 text-sm">{filtered.length} товаров</p>
-        </motion.div>
+        <h1 className="text-white font-black text-4xl md:text-6xl tracking-tight">
+  Каталог
+</h1>
 
-        <div className="flex items-center gap-2 mb-8 overflow-x-auto scrollbar-none pb-2">
-          {(["all", "sale"] as FilterType[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                filterParam === f
-                  ? "bg-white text-black"
-                  : "bg-white/6 text-white/50 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              {filterTitle[f]}
-            </button>
-          ))}
+<p className="text-white/30 mt-3 text-sm">
+  {filtered.length} товаров
+</p>
+        </motion.div>
 
           <div className="flex-1" />
 
