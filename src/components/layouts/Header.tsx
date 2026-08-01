@@ -43,12 +43,14 @@ export default function Header() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 md:h-18">
          {/* Logo */}
-<Link to="/" className="flex items-center gap-3 group">
-  <img
-    src="/favicon.svg"
-    alt="VB STORE"
-    className="w-10 h-10 transition-transform duration-300 group-hover:scale-105"
-  />
+<Link to="/" className="flex items-center gap-3 group shrink-0">
+  <div className="w-9 h-9 flex items-center justify-center overflow-hidden rounded-xl">
+    <img
+      src="/favicon.svg"
+      alt="VB STORE"
+      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+    />
+  </div>
 
   <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
     {settings.storeName}
