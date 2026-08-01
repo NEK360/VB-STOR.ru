@@ -92,32 +92,35 @@ let cacheProducts: Product[] | null = null;
 let cachePromise: Promise<Product[]> | null = null;
 import { reviews } from "../store-data/reviews";
 
-export function getProductRating(productId: string) {
+export function getProductRating(product: Product) {
   const productReviews = reviews.filter(
-    (review) => review.productId === productId
+    (r) =>
+      String(r.productId) === String(product.id) ||
+      String(r.productId) === String(product.article)
   );
 
-  const reviewsCount = productReviews.length;
-
-  if (reviewsCount === 0) {
+  if (!productReviews.length) {
     return {
-      rating: 0,
+      rating: 5,
       reviewsCount: 0,
     };
   }
 
   const rating =
-    productReviews.reduce((sum, review) => sum + review.rating, 0) /
-    reviewsCount;
+    productReviews.reduce((sum, r) => sum + r.rating, 0) /
+    productReviews.length;
 
   return {
     rating: Number(rating.toFixed(1)),
-    reviewsCount,
+    reviewsCount: productReviews.length,
   };
 }
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
-  const { rating, reviewsCount } = getProductRating(String(p.id ?? ""));
+  const reviewInfo = getProductRating({
+  id: String(p.id ?? ""),
+  article: String(p.article ?? "")
+});
   const normalizedSizes = Array.isArray(p.sizes)
     ? p.sizes
         .filter((size) => size?.value)
@@ -168,8 +171,8 @@ function normalizeProduct(p: ProductPayload): Product {
     gender: String(p.gender ?? ""),
     available: Boolean(p.available),
     offlineOnly: hasOffline && !hasWB,
-    rating,
-    reviewsCount,
+    rating: reviewInfo.rating,
+reviewsCount: reviewInfo.reviewsCount,
     wbOnly: !hasOffline && hasWB,
     bothAvailable: hasOffline && hasWB,
     isNew: Boolean(p.isNew),
