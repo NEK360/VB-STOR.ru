@@ -168,11 +168,7 @@ export default function Header() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[90] lg:hidden"
           >
-           <img
-  src="/favicon.svg"
-  alt="VB STORE"
-  className="w-10 h-10 object-contain"
-/>
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setMenuOpen(false)} />
             <motion.nav
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
