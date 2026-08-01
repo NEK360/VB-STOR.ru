@@ -44,9 +44,20 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="flex flex-col items-center gap-2"
             >
-              <div className="w-16 h-16 border border-white/20 rounded-2xl flex items-center justify-center mb-2">
-                <span className="text-2xl font-black tracking-tighter text-white">VB</span>
-              </div>
+             <motion.img
+    src="/favicon.svg"
+    alt="VB STORE"
+    className="w-24 h-24 object-contain"
+    initial={{ scale: 0.6, opacity: 0 }}
+    animate={{
+        scale: 1,
+        opacity: 1,
+        rotate: [0, -4, 4, 0]
+    }}
+    transition={{
+        duration: 0.8
+    }}
+/>
               <span className="text-white font-bold text-2xl tracking-[0.3em] uppercase">
                 {settings.storeName}
               </span>
