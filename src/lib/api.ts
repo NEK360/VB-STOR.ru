@@ -1,3 +1,4 @@
+import { getProductRating } from "../utils/reviews";
 export interface Product {
   id: string;
   article: string;
@@ -165,9 +166,10 @@ function normalizeProduct(p: ProductPayload): Product {
     sizes: normalizedSizes,
     colors,
     gender: String(p.gender ?? ""),
-import { getProductRating } from "../utils/reviews";
     available: Boolean(p.available),
     offlineOnly: hasOffline && !hasWB,
+    rating,
+    reviewsCount,
     wbOnly: !hasOffline && hasWB,
     bothAvailable: hasOffline && hasWB,
     isNew: Boolean(p.isNew),
