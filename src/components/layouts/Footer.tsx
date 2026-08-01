@@ -17,7 +17,7 @@ export default function Footer() {
               <div className="w-10 h-10 overflow-hidden rounded-xl flex items-center justify-center shrink-0">
   <img
     src="/favicon.svg"
-    alt="VB STORE"
+    alt="STORE"
     className="w-full h-full object-contain"
   />
 </div>
