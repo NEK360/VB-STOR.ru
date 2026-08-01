@@ -47,7 +47,7 @@ export default function Header() {
   <div className="w-9 h-9 flex items-center justify-center overflow-hidden rounded-xl">
     <img
       src="/favicon.svg"
-      alt="VB STORE"
+      alt="STORE"
       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
     />
   </div>
