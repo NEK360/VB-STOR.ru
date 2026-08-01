@@ -394,19 +394,34 @@ export default function ProductPage() {
 
             <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">{product.name}</h1>
 
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    size={14}
-                    className={product.reviewsCount > 0 && s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
-                  />
-                ))}
-              </div>
-              <span className="text-white font-bold text-sm">{product.reviewsCount > 0 ? product.rating : "Нет отзывов"}</span>
-              <span className="text-white/30 text-sm">{product.reviewsCount > 0 ? `${product.reviewsCount} отзывов` : "Нет отзывов"}</span>
-            </div>
+          <div className="flex items-center gap-2">
+  <div className="flex">
+    {[1,2,3,4,5].map((star) => (
+      <Star
+        key={star}
+        size={16}
+        className={
+          star <= Math.round(product.rating)
+            ? "fill-yellow-400 text-yellow-400"
+            : "text-gray-400"
+        }
+      />
+    ))}
+  </div>
+
+  <span className="text-sm text-white/70">
+    {product.rating.toFixed(1)}
+  </span>
+
+  <span className="text-sm text-white/50">
+    ({product.reviewsCount}{" "}
+    {product.reviewsCount === 1
+      ? "отзыв"
+      : product.reviewsCount >= 2 && product.reviewsCount <= 4
+      ? "отзыва"
+      : "отзывов"})
+  </span>
+</div>
 
             <div className="flex items-baseline gap-3 mb-4">
               <span className="text-white font-black text-4xl">{formatPrice(product.price)} </span>
