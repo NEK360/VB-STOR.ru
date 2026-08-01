@@ -42,7 +42,18 @@ export default function Header() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 md:h-18">
-          {/* Logo */}
+          {/* {/* Logo */}
+<Link to="/" className="flex items-center gap-3 group">
+  <img
+    src="/favicon-96x96.png"
+    alt="VB STORE"
+    className="w-10 h-10 rounded-xl object-contain transition-transform duration-300 group-hover:scale-105"
+  />
+
+  <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
+    {settings.storeName}
+  </span>
+</Link> */}
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-9 h-9 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/50 transition-colors duration-300">
               <span className="text-sm font-black tracking-tighter text-white">VB</span>
