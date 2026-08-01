@@ -10,7 +10,7 @@ export const navLinks: NavLink[] = [
   { label: "Распродажа", href: "/sale", badge: "SALE" },
   { label: "Отзывы", href: "/reviews" },
   { label: "Контакты", href: "/contacts" },
-  { label: "FAQ", href: "/faq" },
+  { label: "Частые вопросы", href: "/faq" },
 ];
 
 export const mobileNavLinks: NavLink[] = [
