@@ -53,7 +53,7 @@ export default function Header() {
   <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
     {settings.storeName}
   </span>
-</Link> */}
+</Link> */
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-9 h-9 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/50 transition-colors duration-300">
               <span className="text-sm font-black tracking-tighter text-white">VB</span>
