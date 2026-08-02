@@ -1,4 +1,4 @@
-import { getProductRating } from "../utils/reviews";
+import { reviews } from "../store-data/reviews";
 export interface Product {
   id: string;
   article: string;
