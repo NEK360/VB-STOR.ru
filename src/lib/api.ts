@@ -99,7 +99,6 @@ let cachePromise: Promise<Product[]> | null = null;
     rating: Number(rating.toFixed(1)),
     reviewsCount: productReviews.length,
   };
-}
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
   const reviewInfo = getProductRating({
