@@ -1,6 +1,6 @@
 export const settings = {
   storeName: "VB STORE",
-  storeSlogan: "Выгодный магазин обуви и аксессуаров",
+  storeSlogan: "Выгодный магазин",
   currency: "₽",
   currencyCode: "RUB",
   phone: "+7 918 797-02-30",
