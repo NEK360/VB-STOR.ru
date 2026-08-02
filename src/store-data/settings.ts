@@ -1,5 +1,5 @@
 export const settings = {
-  storeName: "VB STORE",
+  storeName: "STORE",
   storeSlogan: "Выгодный магазин",
   currency: "₽",
   currencyCode: "RUB",
