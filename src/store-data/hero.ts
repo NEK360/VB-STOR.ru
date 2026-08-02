@@ -15,7 +15,7 @@ export const heroSlides: HeroSlide[] = [
   {
     id: "1",
     badge: "Новая коллекция 2026",
-    title: "STORE",
+    title: "VB STORE",
     subtitle: "Выгодный магазин",
     description: "Обувь, одежда и аксессуары в современном стиле. Выбирайте удобные и актуальные модели.",
     primaryButton: { label: "Смотреть каталог", href: "/catalog" },
