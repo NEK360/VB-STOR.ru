@@ -90,6 +90,21 @@ const API_URL =
 const CACHE_KEY = "catalog_cache";
 let cacheProducts: Product[] | null = null;
 let cachePromise: Promise<Product[]> | null = null;
+import { reviews } from "../store-data/reviews";
+
+export function getProductRating(product: Product) {
+  const productReviews = reviews.filter(
+    (r) =>
+      String(r.productId) === String(product.id) ||
+      String(r.productId) === String(product.article)
+  );
+
+  if (!productReviews.length) {
+    return {
+      rating: 5,
+      reviewsCount: 0,
+    };
+  }
 
   const rating =
     productReviews.reduce((sum, r) => sum + r.rating, 0) /
@@ -99,6 +114,7 @@ let cachePromise: Promise<Product[]> | null = null;
     rating: Number(rating.toFixed(1)),
     reviewsCount: productReviews.length,
   };
+}
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
   const reviewInfo = getProductRating({
@@ -112,7 +128,7 @@ function normalizeProduct(p: ProductPayload): Product {
           value: String(size.value ?? ""),
           status:
             size.status === "low"
-              ? ("low" as const)
+              ? "low" as const
               : size.status === "unavailable"
                 ? "unavailable" as const
                 : "available" as const,
@@ -332,6 +348,7 @@ export async function loadProducts(): Promise<Product[]> {
       const normalized = data.map(normalizeProduct);
       console.log("NORMALIZED", normalized[0]);
       const grouped = groupProducts(normalized);
+const { rating, reviewsCount } = getProductRating(String(p.id ?? ""));
       cacheProducts = grouped;
 
       if (typeof window !== "undefined") {
