@@ -88,8 +88,38 @@ interface ProductPayload {
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
 const CACHE_KEY = "catalog_cache";
-let cacheProducts: Product[] | null = null;
 
+let cacheProducts: Product[] | null = null;
+let cachePromise: Promise<Product[]> | null = null;
+function getProductRating(product: {
+  id: string;
+  article: string;
+}) {
+
+  const productReviews = reviews.filter(
+    (r) =>
+      String(r.productId) === String(product.id) ||
+      String(r.productId) === String(product.article)
+  );
+
+  if (!productReviews.length) {
+    return {
+      rating: 5,
+      reviewsCount: 0,
+    };
+  }
+
+  const rating =
+    productReviews.reduce(
+      (sum, r) => sum + r.rating,
+      0
+    ) / productReviews.length;
+
+  return {
+    rating: Number(rating.toFixed(1)),
+    reviewsCount: productReviews.length,
+  };
+}
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
  const reviewInfo = getProductRating({
