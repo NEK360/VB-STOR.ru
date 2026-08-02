@@ -56,7 +56,7 @@ export const reviews: Review[] = [
     verified: true,
   },
   {
-    id: "544069333",
+    id: "6",
     productId: "544069333",
     name: "Роза",
     rating: 5,
