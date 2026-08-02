@@ -112,7 +112,7 @@ function normalizeProduct(p: ProductPayload): Product {
           value: String(size.value ?? ""),
           status:
             size.status === "low"
-              ? "low" as 
+              ? ("low" as const)
               : size.status === "unavailable"
                 ? "unavailable" as const
                 : "available" as const,
