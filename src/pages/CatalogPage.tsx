@@ -41,7 +41,12 @@ export default function CatalogPage() {
 
     console.log("Получено товаров:", data.length);
     console.log(data);
-
+console.log({
+  products: products.length,
+  filtered: filtered.length,
+  category: selectedCategory,
+  filterParam
+});
     if (!isActive) return;
 
     setProducts(data);
