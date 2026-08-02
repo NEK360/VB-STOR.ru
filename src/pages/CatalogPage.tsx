@@ -35,15 +35,20 @@ export default function CatalogPage() {
   useEffect(() => {
     let isActive = true;
 
-    async function fetchData() {
-      try {
-        const data = await loadProducts();
-        if (!isActive) return;
-        setProducts(data);
-      } catch (e) {
-        console.error(e);
-      }
-    }
+   async function fetchData() {
+  try {
+    const data = await loadProducts();
+
+    console.log("Получено товаров:", data.length);
+    console.log(data);
+
+    if (!isActive) return;
+
+    setProducts(data);
+  } catch (e) {
+    console.error("Ошибка загрузки:", e);
+  }
+}
 
     void fetchData();
 
@@ -55,7 +60,9 @@ export default function CatalogPage() {
   useEffect(() => {
     document.title = seo.catalog.title;
   }, []);
-
+useEffect(() => {
+  console.log("Products state:", products.length);
+}, [products]);
   const maxPrice = useMemo(() => {
     if (products.length === 0) return 100000;
     return Math.max(...products.map((p) => p.price));
