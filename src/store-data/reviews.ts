@@ -1,3 +1,34 @@
+import { reviews } from "../store-data/reviews";
+
+export function getProductRating(product: {
+  id: string;
+  article?: string;
+}) {
+
+  const productReviews = reviews.filter(
+    (r) =>
+      String(r.productId) === String(product.id) ||
+      String(r.productId) === String(product.article)
+  );
+
+  if (!productReviews.length) {
+    return {
+      rating: 5,
+      reviewsCount: 0,
+    };
+  }
+
+  const rating =
+    productReviews.reduce(
+      (sum, review) => sum + review.rating,
+      0
+    ) / productReviews.length;
+
+  return {
+    rating: Number(rating.toFixed(1)),
+    reviewsCount: productReviews.length,
+  };
+}
 export interface Review {
   id: string;
   productId?: string;
