@@ -1,4 +1,6 @@
 import { getProductRating } from "../utils/reviews";
+import { reviews } from "../store-data/reviews";
+import { getProductRating } from "../utils/reviews";
 export interface Product {
   id: string;
   article: string;
@@ -89,15 +91,6 @@ const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
 const CACHE_KEY = "catalog_cache";
 let cacheProducts: Product[] | null = null;
-let cachePromise: Promise<Product[]> | null = null;
-import { reviews } from "../store-data/reviews";
-
-export function getProductRating(product: Product) {
-  const productReviews = reviews.filter(
-    (r) =>
-      String(r.productId) === String(product.id) ||
-      String(r.productId) === String(product.article)
-  );
 
   if (!productReviews.length) {
     return {
@@ -117,10 +110,10 @@ export function getProductRating(product: Product) {
 }
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
-  const reviewInfo = getProductRating({
+ const reviewInfo = getProductRating({
   id: String(p.id ?? ""),
-  article: String(p.article ?? "")
-});
+  article: String(p.article ?? ""),
+} as unknown as Product);
   const normalizedSizes = Array.isArray(p.sizes)
     ? p.sizes
         .filter((size) => size?.value)
@@ -348,7 +341,6 @@ export async function loadProducts(): Promise<Product[]> {
       const normalized = data.map(normalizeProduct);
       console.log("NORMALIZED", normalized[0]);
       const grouped = groupProducts(normalized);
-const { rating, reviewsCount } = getProductRating(String(p.id ?? ""));
       cacheProducts = grouped;
 
       if (typeof window !== "undefined") {
