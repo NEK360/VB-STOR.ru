@@ -16,6 +16,11 @@ const PROMOCODES: Record<string, number> = {
   SUN12: 15,
 };
 
+interface GalleryItem {
+  type: "video" | "image";
+  src: string;
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
@@ -91,7 +96,7 @@ export default function ProductPage() {
     setActivePhoto(0);
     // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
-    setSelectedSize(String(firstAvailable));
+    setSelectedSize(firstAvailable ? String(firstAvailable) : null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
@@ -100,37 +105,13 @@ export default function ProductPage() {
 
   const fav = isFavorite(product?.id ?? "");
 
-  const isVideoSrc = (src?: string) => {
-    if (!src) return false;
-    return src.endsWith(".mp4") || src.includes("youtube") || src.includes("vimeo");
-  };
-
   // build gallery: video first, then images
-  const gallery = useMemo(() => {
-    if (!product) return [] as { type: "video" | "image"; src: string }[];
-    const videoItems: { type: "video" | "image"; src: string }[] = [];
-    const p: any = product as any;
-    if (p.video && typeof p.video === "string") videoItems.push({ type: "video", src: p.video });
-    if (Array.isArray(p.videos)) {
-      for (const v of p.videos) if (v) videoItems.push({ type: "video", src: String(v) });
-    }
+  const gallery = useMemo<GalleryItem[]>(() => {
+    if (!product) return [];
     const images = Array.isArray(product.images)
-  ? product.images
-      .filter(Boolean)
-      .map((s) => ({
-        type: "image",
-        src: String(s).trim()
-      }))
-  : typeof product.images === "string"
-  ? product.images
-      .split(";")
-      .filter(Boolean)
-      .map((s) => ({
-        type: "image",
-        src: s.trim()
-      }))
-  : [];
-    return [...videoItems, ...images];
+      ? product.images.filter(Boolean).map((s) => ({ type: "image" as const, src: String(s).trim() }))
+      : [];
+    return images;
   }, [product]);
 
   const hasImages = gallery.length > 0;
@@ -261,10 +242,10 @@ export default function ProductPage() {
           {/* Галерея */}
           <div className="space-y-4">
             <div
- className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
- onTouchStart={handleTouchStart}
- onTouchEnd={handleTouchEnd}
->
+              className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
               {hasImages ? (
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -275,17 +256,13 @@ export default function ProductPage() {
                     transition={{ duration: 0.3 }}
                     className="w-full h-full"
                   >
-                    {gallery[activePhoto]?.type === "video" ? (
-                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
-                    ) : (
-                     <img
- src={gallery[activePhoto]?.src}
- onClick={() => setImgZoomed(true)}
-                        alt={`${product.name} — фото ${activePhoto + 1}`}
-                        className="w-full h-full object-cover"
-                        loading={activePhoto === 0 ? "eager" : "lazy"}
-                      />
-                    )}
+                    <img
+                      src={gallery[activePhoto]?.src}
+                      onClick={() => setImgZoomed(true)}
+                      alt={`${product.name} — фото ${activePhoto + 1}`}
+                      className="w-full h-full object-cover cursor-zoom-in"
+                      loading={activePhoto === 0 ? "eager" : "lazy"}
+                    />
                   </motion.div>
                 </AnimatePresence>
               ) : (
@@ -333,20 +310,16 @@ export default function ProductPage() {
                   <button
                     key={item.src}
                     onClick={(e) => {
- e.stopPropagation();
- setActivePhoto(i);
-}}
+                      e.stopPropagation();
+                      setActivePhoto(i);
+                    }}
                     className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
                       i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
                     aria-pressed={i === activePhoto}
                   >
-                    {item.type === "video" ? (
-                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
-                    ) : (
-                      <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                    )}
+                    <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -394,7 +367,7 @@ export default function ProductPage() {
 
             <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">{product.name}</h1>
 
-          <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
@@ -409,51 +382,35 @@ export default function ProductPage() {
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">{formatPrice(product.price)} </span>
+              <span className="text-white font-black text-4xl">{formatPrice(product.price)}</span>
             </div>
 
             {/* Промокод */}
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
-value={promoInput}
-onChange={(e)=>setPromoInput(e.target.value)}
-placeholder="Промокод"
-className="
-w-full
-bg-white/10
-border border-white/20
-text-white
-px-4
-py-3
-rounded-xl
-outline-none
-"
-/>
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="Промокод"
+                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none"
+                />
                 <button
-onClick={applyPromo}
-className="
-px-5
-py-3
-rounded-xl
-bg-white
-text-black
-font-medium
-"
->
-Применить
-</button>
-                {promoInput && !appliedPromo && promoInput.trim() !== "" && (
-                  <div className="text-rose-400 text-sm ml-3">Промокод не найден</div>
-                )}
+                  onClick={applyPromo}
+                  className="px-5 py-3 rounded-xl bg-white text-black font-medium"
+                >
+                  Применить
+                </button>
               </div>
+              {promoInput && !appliedPromo && promoInput.trim() !== "" && (
+                <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>
+              )}
 
               {appliedPromo && (
-                <div className="text-white/40 text-sm mt-2">Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)} ₽</div>
+                <div className="text-white/40 text-sm mt-2">Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}</div>
               )}
             </div>
 
-            {product.colors?.length > 0 && (
+            {product.colors && product.colors.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Цвет: <span className="text-white">{selectedColor}</span></p>
                 <div className="flex gap-2 flex-wrap">
@@ -480,53 +437,37 @@ font-medium
             )}
 
             {/* Размеры */}
-{product.sizes.length > 0 && (
-  <div className="mb-8">
-    <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-      Размер
-    </p>
+            {product.sizes.length > 0 && (
+              <div className="mb-8">
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
 
-    <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((size) => {
+                    const available = Number(size.stockOffline ?? 0) > 0 || Number(size.stockWB ?? 0) > 0;
+                    const isSelected = String(selectedSize) === String(size.value);
 
-      {product.sizes.map((size) => {
+                    return (
+                      <button
+                        key={size.value}
+                        onClick={() => setSelectedSize(String(size.value))}
+                        className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
+                          isSelected
+                            ? "bg-white text-black border-white scale-105"
+                            : available
+                            ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                            : "bg-white/5 text-white/30 border-white/10"
+                        }`}
+                      >
+                        {size.value}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-        const available =
-          Number(size.stockOffline ?? 0) > 0 ||
-          Number(size.stockWB ?? 0) > 0;
-
-        const isSelected =
-          String(selectedSize) === String(size.value);
-
-        return (
-          <button
-            key={size.value}
-            onClick={() =>
-              setSelectedSize(String(size.value))
-            }
-            className={`
-              px-4 py-2 rounded-xl border text-sm font-medium transition-all
-
-              ${
-                isSelected
-                  ? "bg-white text-black border-white scale-105"
-                  : available
-                  ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                  : "bg-white/5 text-white/30 border-white/10"
-              }
-            `}
-          >
-            {size.value}
-          </button>
-        );
-
-      })}
-
-    </div>
-  </div>
-)}
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
-              {/* Если размер не выбран */}
               {!selectedSize && (
                 <div>
                   <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
@@ -538,7 +479,7 @@ font-medium
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
                     <p className="text-white text-sm font-medium">✔ Есть в наличии в магазине</p>
-                    <p className="text-white/40 text-xs mt-1">г. Изобильный, Ставропольский край, ул. Кирова, 2Г</p>
+                    <p className="text-white/40 text-xs mt-1">{contacts.address}</p>
                     <p className="text-white/30 text-xs">Способы покупки: заявка, WhatsApp, Telegram, MAX</p>
                   </div>
                 </div>
@@ -607,7 +548,6 @@ font-medium
                 </a>
               </div>
 
-             {/* Кнопка Купить на WB — отображается всегда, если есть ссылка */}
               {product.wbUrl && (
                 <button
                   onClick={() => window.open(product.wbUrl, "_blank")}
@@ -699,48 +639,41 @@ font-medium
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа обратитесь через WhatsApp, Telegram, MAX или форму заявки.
+                        Возможна доставка по запросу, а также самовывоз по адресу {contacts.address}. Для заказа обратитесь через WhatsApp, Telegram, MAX или форму заявки.
                       </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-         </div> 
+            </div>
           </motion.div>
         </div>
 
-      {related.length > 0 && (
-        <section className="mt-20" aria-labelledby="related-title">
-          <h2
-            id="related-title"
-            className="text-white font-black text-3xl tracking-tight mb-8"
-          >
-            Похожие товары
-          </h2>
+        {related.length > 0 && (
+          <section className="mt-20" aria-labelledby="related-title">
+            <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">
+              Похожие товары
+            </h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {related.map((p, i) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                index={i}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {related.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
-    <OrderModal
- product={product}
- selectedSize={selectedSize}
- selectedColor={selectedColor}
- isOpen={orderOpen}
- onClose={()=>setOrderOpen(false)}
- promocode={appliedPromo ?? undefined}
- discount={promoPercent}
- finalPrice={finalPrice}
-/>
+      <OrderModal
+        product={product}
+        selectedSize={selectedSize}
+        selectedColor={selectedColor}
+        isOpen={orderOpen}
+        onClose={() => setOrderOpen(false)}
+        promocode={appliedPromo ?? undefined}
+        discount={promoPercent}
+        finalPrice={finalPrice}
+      />
 
       <AnimatePresence>
         {imgZoomed && hasImages && (
@@ -751,17 +684,13 @@ font-medium
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
           >
-            {gallery[activePhoto]?.type === "video" ? (
-              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
-            ) : (
-              <motion.img
-                src={gallery[activePhoto]?.src}
-                alt={product.name}
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="max-w-full max-h-full object-contain rounded-2xl"
-              />
-            )}
+            <motion.img
+              src={gallery[activePhoto]?.src}
+              alt={product.name}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="max-w-full max-h-full object-contain rounded-2xl"
+            />
             <button
               onClick={() => setImgZoomed(false)}
               className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
@@ -774,17 +703,4 @@ font-medium
       </AnimatePresence>
     </main>
   );
-}
-
-function getSizeStatus(status: string) {
-  switch (status) {
-    case "available":
-      return "bg-white/10 text-white hover:bg-white/20 border-white/15";
-    case "low":
-      return "bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 border-yellow-500/30";
-    case "unavailable":
-      return "bg-white/3 text-white/20 cursor-not-allowed border-white/5";
-    default:
-      return "";
-  }
 }
