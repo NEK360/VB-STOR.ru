@@ -4,19 +4,20 @@ import { motion } from "framer-motion";
 import { Heart, ShoppingBag, Star, ExternalLink } from "lucide-react";
 import { preloadProduct, type Product } from "../../lib/api";
 import { useFavorites } from "../../hooks/useFavorites";
-import { formatPrice } from "../../lib/utils";
+import { formatPrice, reviewsWord } from "../../lib/utils";
 import { analytics } from "../../lib/analytics";
 
-interface ProductCardProps {
+type Props = {
   product: Product;
   index?: number;
-}
+};
 
-export default function ProductCard({ product, index = 0 }: ProductCardProps) {
+export default function ProductCard({ product, index = 0 }: Props) {
   const [imgIndex, setImgIndex] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
   const { isFavorite, toggle } = useFavorites();
-  const fav = isFavorite(product.id);
+ const fav = isFavorite(product.id);
+   const cover = product.images?.[0];
 
   const hasImages = product.images.length > 0;
   const currentImg = hasImages ? product.images[imgIndex] : null;
@@ -37,46 +38,70 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
     }
   };
 
-  return (
+return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.2, delay: index * 0.02, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: Math.min(index, 8) * 0.04 }}
+      className="group relative"
     >
-      <Link
-        to={`/catalog/${product.id}`}
-        className="group block"
-        aria-label={product.name}
-        onClick={() => analytics.viewProduct(product.id, product.name, product.price)}
-        onMouseEnter={() => { void preloadProduct(product.id); }}
-      >
-        <div className="relative overflow-hidden rounded-2xl bg-white/4 border border-white/6 transition-all duration-500 group-hover:border-white/15 group-hover:shadow-2xl group-hover:shadow-black/40">
-          {/* Image */}
-          <div
-            className="relative aspect-[3/4] overflow-hidden bg-white/3"
-            onMouseEnter={() => product.images[1] && setImgIndex(1)}
-            onMouseLeave={() => setImgIndex(0)}
+      <Link to={`/product/${product.id}`} className="block">
+        <div className="relative aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/8 mb-3">
+          {cover ? (
+            <img
+              src={cover}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white/10 text-5xl">📦</div>
+          )}
+
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+            {product.isNew && <span className="bg-white text-black text-[10px] font-bold px-2 py-1 rounded-md">NEW</span>}
+            {product.isSale && product.discount ? (
+              <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-1 rounded-md">-{product.discount}%</span>
+            ) : null}
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggle(product.id);
+            }}
+            className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              fav ? "bg-white text-black" : "bg-black/40 text-white hover:bg-black/60"
+            }`}
+            aria-label={fav ? "Убрать из избранного" : "Добавить в избранное"}
+            aria-pressed={fav}
           >
-            {currentImg ? (
-              <>
-                {!imgLoaded && (
-                  <div className="absolute inset-0 shimmer" />
-                )}
-                <motion.img
-                  src={currentImg}
-                  alt={product.name}
-                  loading="lazy"
-                  onLoad={() => setImgLoaded(true)}
-                  className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
-                  animate={{ opacity: imgLoaded ? 1 : 0 }}
-                />
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ShoppingBag size={32} className="text-white/10" />
-              </div>
-            )}
+            <Heart size={14} fill={fav ? "currentColor" : "none"} />
+          </button>
+        </div>
+
+        <p className="text-white/30 text-[11px] uppercase tracking-wider mb-1">{product.category}</p>
+        <h3 className="text-white text-sm font-semibold leading-snug mb-1.5 line-clamp-2">{product.name}</h3>
+
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Star size={12} className={product.reviewsCount > 0 ? "text-yellow-400 fill-yellow-400" : "text-white/15"} />
+          <span className="text-white/50 text-xs">
+            {product.reviewsCount > 0 ? `${product.rating} · ${product.reviewsCount} ${reviewsWord(product.reviewsCount)}` : "Нет отзывов"}
+          </span>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="text-white font-bold text-base">{formatPrice(product.price)}</span>
+          {product.oldPrice && product.oldPrice > product.price ? (
+            <span className="text-white/30 text-xs line-through">{formatPrice(product.oldPrice)}</span>
+          ) : null}
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
 
             {/* Overlay gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
