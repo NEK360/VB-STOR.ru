@@ -1,5 +1,4 @@
 import { reviews } from "../store-data/reviews";
-
 export interface Product {
   id: string;
   article: string;
@@ -47,6 +46,7 @@ export interface Product {
 
   wbUrl: string;
 }
+
 interface ProductPayload {
   id?: string | number;
   article?: string;
@@ -120,22 +120,6 @@ function getProductRating(product: {
     reviewsCount: productReviews.length,
   };
 }
-function getProductRating(product: { id: string; article: string }) {
-  const productReviews = reviews.filter(
-    (r) => String(r.productId) === String(product.id) || String(r.productId) === String(product.article)
-  );
-
-  if (!productReviews.length) {
-    return { rating: 5, reviewsCount: 0 };
-  }
-
-  const rating = productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
-
-  return {
-    rating: Number(rating.toFixed(1)),
-    reviewsCount: productReviews.length,
-  };
-}
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
  const reviewInfo = getProductRating({
@@ -203,15 +187,21 @@ reviewsCount: reviewInfo.reviewsCount,
     wbUrl: String(p.wbUrl ?? ""),
   };
 }
-function buildProducts(): Product[] {
-  return RAW_PRODUCTS.map((p) => {
-    const reviewInfo = getProductRating({ id: p.id, article: p.article });
-    return {
-      ...p,
-      rating: reviewInfo.rating,
-      reviewsCount: reviewInfo.reviewsCount,
-    };
-  });
+function getProductRating(product: { id: string; article: string }) {
+  const productReviews = reviews.filter(
+    (r) => String(r.productId) === String(product.id) || String(r.productId) === String(product.article)
+  );
+
+  if (!productReviews.length) {
+    return { rating: 5, reviewsCount: 0 };
+  }
+
+  const rating = productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
+
+  return {
+    rating: Number(rating.toFixed(1)),
+    reviewsCount: productReviews.length,
+  };
 }
 function getProductKey(product: Product): string {
   const id = String(product.id || product.article || "").trim();
@@ -340,20 +330,25 @@ function groupProducts(products: Product[]): Product[] {
 }
 
 export async function loadProducts(): Promise<Product[]> {
-  if (cacheProducts) return cacheProducts;
-  if (cachePromise) return cachePromise;
+  if (cacheProducts) {
+    return cacheProducts;
+  }
 
-  cachePromise = new Promise<Product[]>((resolve) => {
-    // Simulate a tiny async delay so loading states remain meaningful.
-    setTimeout(() => {
-      cacheProducts = buildProducts();
-      cachePromise = null;
-      resolve(cacheProducts);
-    }, 120);
-  });
+  if (cachePromise) {
+    return cachePromise;
+  }
 
-  return cachePromise;
-}
+  cachePromise = (async () => {
+    const cached = typeof window !== "undefined" ? window.localStorage.getItem(CACHE_KEY) : null;
+
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as Product[];
+        cacheProducts = parsed;
+      } catch {
+        cacheProducts = null;
+      }
+    }
 
     try {
       const res = await fetch(API_URL, {
