@@ -205,6 +205,5 @@ return (
               )}
             </div>
           </div>
-    </motion.div>
   );
 }
