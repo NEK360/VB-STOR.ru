@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart,
@@ -13,9 +13,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { getProductById, loadProducts, type Product } from "../lib/api";
-import { reviews } from "../store-data/reviews";
 import { contacts } from "../store-data/contacts";
-import { formatPrice } from "../lib/utils";
+import { formatPrice, reviewsWord } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { analytics } from "../lib/analytics";
@@ -27,18 +26,13 @@ const PROMOCODES: Record<string, number> = {
   SUN12: 15,
 };
 
-function reviewCountWord(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod100 >= 11 && mod100 <= 14) return `${count} отзывов`;
-  if (mod10 === 1) return `${count} отзыв`;
-  if (mod10 >= 2 && mod10 <= 4) return `${count} отзыва`;
-  return `${count} отзывов`;
-}
+// drag distance (px) below which a pointer interaction is treated as a "click"
+const DRAG_THRESHOLD = 10;
+
+type GalleryItem = { type: "video" | "image"; src: string };
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,11 +65,7 @@ export default function ProductPage() {
 
       if (!isActive) return;
 
-      setRelated(
-        all
-          .filter((x) => x.category === p.category && x.id !== p.id)
-          .slice(0, 4)
-      );
+      setRelated(all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4));
       setLoading(false);
     }
 
@@ -89,20 +79,19 @@ export default function ProductPage() {
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
-  // gallery index
+  // gallery
   const [activePhoto, setActivePhoto] = useState(0);
-  // size/color
+  const [imgZoomed, setImgZoomed] = useState(false);
+
+  // size / color — NOT auto-selected, user must choose explicitly
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
-  const [orderOpen, setOrderOpen] = useState(false);
-  const [imgZoomed, setImgZoomed] = useState(false);
-  const [openSection, setOpenSection] = useState<
-    "about" | "details" | "delivery" | null
-  >("about");
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  // promo state
-  const [promoInput, setPromoInput] = useState("");
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
+
+  // promo code
+  const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,40 +101,29 @@ export default function ProductPage() {
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
     setActivePhoto(0);
-    // select first available size by default
-    const firstAvailable =
-      product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
-    setSelectedSize(firstAvailable ? String(firstAvailable) : null);
+    setSelectedSize(null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
-    setPromoInput("");
-  }, [addViewed, product]);
+    setPromoCode("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
   const fav = isFavorite(product?.id ?? "");
 
   // build gallery: video first, then images
-  const gallery = useMemo(() => {
-    if (!product) return [] as { type: "video" | "image"; src: string }[];
-    const videoItems: { type: "video" | "image"; src: string }[] = [];
-    const p = product as Product & { video?: string; videos?: string[] };
-    if (p.video && typeof p.video === "string")
-      videoItems.push({ type: "video", src: p.video });
+  const gallery = useMemo<GalleryItem[]>(() => {
+    if (!product) return [];
+    const items: GalleryItem[] = [];
+    const p = product as unknown as { video?: string; videos?: string[] };
+    if (p.video && typeof p.video === "string") items.push({ type: "video", src: p.video });
     if (Array.isArray(p.videos)) {
-      for (const v of p.videos)
-        if (v) videoItems.push({ type: "video", src: String(v) });
+      for (const v of p.videos) if (v) items.push({ type: "video", src: String(v) });
     }
     const images = Array.isArray(product.images)
-      ? product.images
-          .filter(Boolean)
-          .map((s) => ({ type: "image" as const, src: String(s).trim() }))
-      : typeof product.images === "string"
-        ? (product.images as string)
-            .split(";")
-            .filter(Boolean)
-            .map((s) => ({ type: "image" as const, src: s.trim() }))
-        : [];
-    return [...videoItems, ...images];
+      ? product.images.filter(Boolean).map((s) => ({ type: "image" as const, src: String(s).trim() }))
+      : [];
+    return [...items, ...images];
   }, [product]);
 
   const hasImages = gallery.length > 0;
@@ -156,21 +134,49 @@ export default function ProductPage() {
   }, [galleryLength]);
 
   const handleNextPhoto = useCallback(() => {
-    setActivePhoto((prev) =>
-      prev === galleryLength - 1 ? 0 : prev + 1
-    );
+    setActivePhoto((prev) => (prev === galleryLength - 1 ? 0 : prev + 1));
   }, [galleryLength]);
 
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    setTouchStartX(event.touches[0]?.clientX ?? null);
+  // ---- Unified pointer (mouse + touch) drag/swipe handling ----
+  const dragStartX = useRef<number | null>(null);
+  const dragDelta = useRef(0);
+  const isDragging = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragStartX.current = e.clientX;
+    dragDelta.current = 0;
+    isDragging.current = false;
   };
 
-  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null) return;
-    const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
-    if (delta > 50) handlePrevPhoto();
-    else if (delta < -50) handleNextPhoto();
-    setTouchStartX(null);
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartX.current === null) return;
+    dragDelta.current = e.clientX - dragStartX.current;
+    if (Math.abs(dragDelta.current) > DRAG_THRESHOLD) {
+      isDragging.current = true;
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (dragStartX.current === null) return;
+
+    if (Math.abs(dragDelta.current) > 50) {
+      if (dragDelta.current < 0) {
+        handleNextPhoto();
+      } else {
+        handlePrevPhoto();
+      }
+    }
+
+    dragStartX.current = null;
+    dragDelta.current = 0;
+  };
+
+  const handleImageClick = () => {
+    // Only open fullscreen if this was a tap/click, not a drag/swipe
+    if (!isDragging.current) {
+      setImgZoomed(true);
+    }
+    isDragging.current = false;
   };
 
   const details = useMemo(
@@ -183,11 +189,10 @@ export default function ProductPage() {
     [product]
   );
 
+  // selected size object
   const selectedSizeObj = useMemo(() => {
     if (!product || !selectedSize) return undefined;
-    return product.sizes.find(
-      (s) => String(s.value) === String(selectedSize)
-    );
+    return product.sizes.find((s) => String(s.value) === String(selectedSize));
   }, [product, selectedSize]);
 
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
@@ -202,17 +207,17 @@ export default function ProductPage() {
     return Math.round((basePrice * (100 - promoPercent)) / 100);
   }, [basePrice, promoPercent]);
 
+  const promoInvalid = promoCode.trim() !== "" && !appliedPromo;
+
   const applyPromo = () => {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) {
+    const code = promoCode.trim().toUpperCase();
+    if (!code || !(code in PROMOCODES)) {
       setAppliedPromo(null);
-      return;
-    }
-    if (!(code in PROMOCODES)) {
-      setAppliedPromo(null);
+      analytics.applyPromo(code, false);
       return;
     }
     setAppliedPromo(code);
+    analytics.applyPromo(code, true);
   };
 
   const handleOrderClick = () => {
@@ -229,21 +234,6 @@ export default function ProductPage() {
       return;
     }
     setOrderOpen(true);
-  };
-
-  // Navigate to reviews page for this product
-  // Find first review for this product to highlight it
-  const handleReviewsClick = () => {
-    if (!product) return;
-    const firstReview = reviews.find(
-      (r) => String(r.productId) === String(product.id)
-    );
-    const params = new URLSearchParams();
-    params.set("product", product.id);
-    if (firstReview) {
-      params.set("review", firstReview.id);
-    }
-    navigate(`/reviews?${params.toString()}`);
   };
 
   if (loading) {
@@ -263,10 +253,7 @@ export default function ProductPage() {
         <div className="text-center">
           <p className="text-white/20 text-6xl mb-6">404</p>
           <p className="text-white/40 text-lg mb-8">Товар не найден</p>
-          <Link
-            to="/catalog"
-            className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all"
-          >
+          <Link to="/catalog" className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all">
             Вернуться в каталог
           </Link>
         </div>
@@ -277,30 +264,25 @@ export default function ProductPage() {
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <nav
-          aria-label="Хлебные крошки"
-          className="flex items-center gap-2 py-6 text-sm text-white/30"
-        >
-          <Link to="/" className="hover:text-white transition-colors">
-            Главная
-          </Link>
+        <nav aria-label="Хлебные крошки" className="flex items-center gap-2 py-6 text-sm text-white/30">
+          <Link to="/" className="hover:text-white transition-colors">Главная</Link>
           <span>/</span>
-          <Link to="/catalog" className="hover:text-white transition-colors">
-            Каталог
-          </Link>
+          <Link to="/catalog" className="hover:text-white transition-colors">Каталог</Link>
           <span>/</span>
-          <span className="text-white/60 truncate max-w-[200px]">
-            {product.name}
-          </span>
+          <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Галерея */}
           <div className="space-y-4">
             <div
-              className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
+              className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 select-none cursor-grab active:cursor-grabbing touch-pan-y"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={() => {
+                dragStartX.current = null;
+              }}
             >
               {hasImages ? (
                 <AnimatePresence mode="wait">
@@ -313,18 +295,15 @@ export default function ProductPage() {
                     className="w-full h-full"
                   >
                     {gallery[activePhoto]?.type === "video" ? (
-                      <video
-                        src={gallery[activePhoto].src}
-                        controls
-                        className="w-full h-full object-cover"
-                      />
+                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
                     ) : (
                       <img
                         src={gallery[activePhoto]?.src}
-                        onClick={() => setImgZoomed(true)}
+                        onClick={handleImageClick}
                         alt={`${product.name} — фото ${activePhoto + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-zoom-in"
                         loading={activePhoto === 0 ? "eager" : "lazy"}
+                        draggable={false}
                       />
                     )}
                   </motion.div>
@@ -362,9 +341,7 @@ export default function ProductPage() {
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
-                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">
-                    NEW
-                  </span>
+                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
                 )}
               </div>
             </div>
@@ -374,30 +351,19 @@ export default function ProductPage() {
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
                 {gallery.map((item, i) => (
                   <button
-                    key={item.src}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActivePhoto(i);
-                    }}
+                    key={`${item.src}-${i}`}
+                    type="button"
+                    onClick={() => setActivePhoto(i)}
                     className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                      i === activePhoto
-                        ? "border-white ring-2 ring-white/50"
-                        : "border-white/10 hover:border-white/30"
+                      i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
                     aria-pressed={i === activePhoto}
                   >
                     {item.type === "video" ? (
-                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">
-                        ▶
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
                     ) : (
-                      <img
-                        src={item.src}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
+                      <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
                     )}
                   </button>
                 ))}
@@ -405,7 +371,6 @@ export default function ProductPage() {
             )}
           </div>
 
-          {/* Info panel */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -414,29 +379,20 @@ export default function ProductPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-white/30 text-xs uppercase tracking-widest">
-                  {product.category}
-                </span>
+                <span className="text-white/30 text-xs uppercase tracking-widest">{product.category}</span>
                 {product.gender && (
                   <>
                     <span className="text-white/15">·</span>
-                    <span className="text-white/30 text-xs">
-                      {product.gender}
-                    </span>
+                    <span className="text-white/30 text-xs">{product.gender}</span>
                   </>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    navigator.share
-                      ?.({
-                        title: product.name,
-                        url: window.location.href,
-                      })
-                      .catch(() =>
-                        navigator.clipboard.writeText(window.location.href)
-                      );
+                    navigator.share?.({ title: product.name, url: window.location.href }).catch(() =>
+                      navigator.clipboard.writeText(window.location.href)
+                    );
                   }}
                   className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:border-white/30 transition-all"
                   aria-label="Поделиться"
@@ -446,13 +402,9 @@ export default function ProductPage() {
                 <button
                   onClick={() => toggle(product.id)}
                   className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-                    fav
-                      ? "bg-white border-white text-black"
-                      : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
+                    fav ? "bg-white border-white text-black" : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
                   }`}
-                  aria-label={
-                    fav ? "Убрать из избранного" : "Добавить в избранное"
-                  }
+                  aria-label={fav ? "Убрать из избранного" : "Добавить в избранное"}
                   aria-pressed={fav}
                 >
                   <Heart size={15} fill={fav ? "currentColor" : "none"} />
@@ -460,75 +412,59 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">
-              {product.name}
-            </h1>
+            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">{product.name}</h1>
 
-            {/* Rating row with clickable review count */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
                     size={14}
-                    className={
-                      product.reviewsCount > 0 &&
-                      s <= Math.round(product.rating)
-                        ? "text-yellow-400 fill-yellow-400"
-                        : "text-white/15"
-                    }
+                    className={product.reviewsCount > 0 && s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
                   />
                 ))}
               </div>
-              <span className="text-white font-bold text-sm">
-                {product.reviewsCount > 0 ? product.rating : "Нет отзывов"}
-              </span>
-
-              {/* Clickable review count */}
+              <span className="text-white font-bold text-sm">{product.reviewsCount > 0 ? product.rating : "Нет отзывов"}</span>
               {product.reviewsCount > 0 ? (
-                <button
-                  onClick={handleReviewsClick}
-                  className="text-white/40 text-sm hover:text-white underline underline-offset-2 decoration-white/30 hover:decoration-white transition-colors cursor-pointer"
+                <Link
+                  to={`/reviews?product=${encodeURIComponent(product.id)}`}
+                  className="text-white/40 text-sm underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
                 >
-                  {reviewCountWord(product.reviewsCount)}
-                </button>
+                  {product.reviewsCount} {reviewsWord(product.reviewsCount)}
+                </Link>
               ) : (
                 <span className="text-white/30 text-sm">Нет отзывов</span>
               )}
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">
-                {formatPrice(product.price)}
-              </span>
+              <span className="text-white font-black text-4xl">{formatPrice(product.price)} </span>
             </div>
 
             {/* Промокод */}
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
-                  value={promoInput}
-                  onChange={(e) => setPromoInput(e.target.value)}
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
                   placeholder="Промокод"
-                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none"
+                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none focus:border-white/40"
                 />
                 <button
+                  type="button"
                   onClick={applyPromo}
-                  className="px-5 py-3 rounded-xl bg-white text-black font-medium"
+                  className="px-5 py-3 rounded-xl bg-white text-black font-medium shrink-0"
                 >
                   Применить
                 </button>
-                {promoInput && !appliedPromo && promoInput.trim() !== "" && (
-                  <div className="text-rose-400 text-sm ml-3">
-                    Промокод не найден
-                  </div>
-                )}
               </div>
+
+              {promoInvalid && <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>}
 
               {appliedPromo && (
                 <div className="text-white/40 text-sm mt-2">
-                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена:{" "}
-                  {formatPrice(finalPrice)} ₽
+                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}
                 </div>
               )}
             </div>
@@ -536,8 +472,7 @@ export default function ProductPage() {
             {product.colors?.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-                  Цвет:{" "}
-                  <span className="text-white">{selectedColor}</span>
+                  Цвет: <span className="text-white">{selectedColor}</span>
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
@@ -545,26 +480,15 @@ export default function ProductPage() {
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
                       className={`group relative w-8 h-8 rounded-full border-2 transition-all ${
-                        selectedColor === color.name
-                          ? "border-white scale-110"
-                          : "border-white/20 hover:border-white/50"
+                        selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"
                       }`}
-                      style={{
-                        backgroundColor: color.code ?? "#ffffff",
-                      }}
+                      style={{ backgroundColor: color.code ?? "#ffffff" }}
                       aria-label={color.name}
                       aria-pressed={selectedColor === color.name}
                     >
                       {selectedColor === color.name && (
                         <span className="absolute inset-0 flex items-center justify-center">
-                          <Check
-                            size={12}
-                            className={
-                              (color.code ?? "#ffffff") === "#ffffff"
-                                ? "text-black"
-                                : "text-white"
-                            }
-                          />
+                          <Check size={12} className={(color.code ?? "#ffffff") === "#ffffff" ? "text-black" : "text-white"} />
                         </span>
                       )}
                     </button>
@@ -576,29 +500,32 @@ export default function ProductPage() {
             {/* Размеры */}
             {product.sizes.length > 0 && (
               <div className="mb-8">
-                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-                  Размер
-                </p>
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
 
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((size) => {
-                    const available =
-                      Number(size.stockOffline ?? 0) > 0 ||
-                      Number(size.stockWB ?? 0) > 0;
-
-                    const isSelected =
-                      String(selectedSize) === String(size.value);
+                    const isUnavailable = size.status === "unavailable";
+                    const isSelected = !isUnavailable && String(selectedSize) === String(size.value);
 
                     return (
                       <button
                         key={size.value}
-                        onClick={() => setSelectedSize(String(size.value))}
+                        type="button"
+                        disabled={isUnavailable}
+                        onClick={() => {
+                          if (isUnavailable) return;
+                          setSelectedSize((prev) => (prev === size.value ? prev : size.value));
+                        }}
+                        aria-pressed={isSelected}
+                        aria-disabled={isUnavailable}
                         className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
                           isSelected
                             ? "bg-white text-black border-white scale-105"
-                            : available
-                              ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                              : "bg-white/5 text-white/30 border-white/10"
+                            : isUnavailable
+                              ? "bg-white/3 text-white/20 border-white/5 cursor-not-allowed line-through"
+                              : size.status === "low"
+                                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/20"
+                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
                         }`}
                       >
                         {size.value}
@@ -612,24 +539,18 @@ export default function ProductPage() {
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {!selectedSize && (
-                <p className="text-white text-sm font-medium">
-                  Выберите размер, чтобы увидеть наличие
-                </p>
+                <div>
+                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
+                </div>
               )}
 
               {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">
-                      ✔ Есть в наличии в магазине
-                    </p>
-                    <p className="text-white/40 text-xs mt-1">
-                      г. Изобильный, Ставропольский край, ул. Кирова, 2Г
-                    </p>
-                    <p className="text-white/30 text-xs">
-                      Способы покупки: заявка, WhatsApp, Telegram, MAX
-                    </p>
+                    <p className="text-white text-sm font-medium">✔ Есть в наличии в магазине</p>
+                    <p className="text-white/40 text-xs mt-1">г. Изобильный, Ставропольский край, ул. Кирова, 2Г</p>
+                    <p className="text-white/30 text-xs">Способы покупки: заявка, WhatsApp, Telegram, MAX</p>
                   </div>
                 </div>
               )}
@@ -638,20 +559,16 @@ export default function ProductPage() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">
-                      ✔ Есть на Wildberries
-                    </p>
-                    <p className="text-white/40 text-xs mt-1">
-                      Доставка со склада WB
-                    </p>
+                    <p className="text-white text-sm font-medium">✔ Есть на Wildberries</p>
+                    <p className="text-white/40 text-xs mt-1">Доставка со склада WB</p>
                   </div>
                 </div>
               )}
 
               {selectedSize && shopQty === 0 && wbQty === 0 && (
-                <p className="text-white text-sm font-medium">
-                  ❌ Нет в наличии
-                </p>
+                <div>
+                  <p className="text-white text-sm font-medium">❌ Нет в наличии</p>
+                </div>
               )}
             </div>
 
@@ -660,29 +577,23 @@ export default function ProductPage() {
               <button
                 onClick={handleOrderClick}
                 className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  !selectedSize
-                    ? "bg-white/50 text-black/50 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-white/90"
+                  !selectedSize ? "bg-white/50 text-black/50 cursor-not-allowed" : "bg-white text-black hover:bg-white/90"
                 }`}
               >
-                {selectedSize
-                  ? shopQty === 0 && wbQty > 0
-                    ? "Купить на WB"
-                    : "Оставить заявку"
-                  : "Выберите размер"}
+                {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Выберите размер"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href={
-                    selectedSize
-                      ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
-                      : "#"
-                  }
+                  href={selectedSize ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={() => {
-                    if (selectedSize) analytics.clickContact("whatsapp");
+                  onClick={(e) => {
+                    if (!selectedSize) {
+                      e.preventDefault();
+                      return;
+                    }
+                    analytics.clickContact("whatsapp");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                     selectedSize
@@ -694,15 +605,15 @@ export default function ProductPage() {
                   WhatsApp
                 </a>
                 <a
-                  href={
-                    selectedSize
-                      ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
-                      : "#"
-                  }
+                  href={selectedSize ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={() => {
-                    if (selectedSize) analytics.clickContact("telegram");
+                  onClick={(e) => {
+                    if (!selectedSize) {
+                      e.preventDefault();
+                      return;
+                    }
+                    analytics.clickContact("telegram");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                     selectedSize
@@ -737,35 +648,19 @@ export default function ProductPage() {
               </a>
             </div>
 
-            {/* Accordion sections */}
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() =>
-                    setOpenSection((v) => (v === "about" ? null : "about"))
-                  }
+                  onClick={() => setOpenSection((value) => (value === "about" ? null : "about"))}
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
-                    О товаре
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`}
-                  />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">О товаре</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`} />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "about" && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        {product.description ||
-                          "Подробное описание будет добавлено позже."}
-                      </p>
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">{product.description || "Подробное описание будет добавлено позже."}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -773,35 +668,18 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() =>
-                    setOpenSection((v) =>
-                      v === "details" ? null : "details"
-                    )
-                  }
+                  onClick={() => setOpenSection((value) => (value === "details" ? null : "details"))}
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
-                    Характеристики
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`}
-                  />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Характеристики</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`} />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "details" && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                       <div className="px-4 pb-4 space-y-2 text-sm text-white/60">
                         {details.map((item) => (
-                          <div
-                            key={item.label}
-                            className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0"
-                          >
+                          <div key={item.label} className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
                             <span>{item.label}</span>
                             <span className="text-white/80">{item.value}</span>
                           </div>
@@ -814,34 +692,17 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() =>
-                    setOpenSection((v) =>
-                      v === "delivery" ? null : "delivery"
-                    )
-                  }
+                  onClick={() => setOpenSection((value) => (value === "delivery" ? null : "delivery"))}
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
-                    Доставка и оплата
-                  </span>
-                  <ChevronDown
-                    size={16}
-                    className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`}
-                  />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Доставка и оплата</span>
+                  <ChevronDown size={16} className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`} />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "delivery" && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по
-                        адресу г. Изобильный, ул. Кирова, 2Г. Для заказа
-                        обратитесь через WhatsApp, Telegram, MAX или форму
-                        заявки.
+                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа обратитесь через WhatsApp, Telegram, MAX или форму заявки.
                       </p>
                     </motion.div>
                   )}
@@ -851,13 +712,9 @@ export default function ProductPage() {
           </motion.div>
         </div>
 
-        {/* Related products */}
         {related.length > 0 && (
           <section className="mt-20" aria-labelledby="related-title">
-            <h2
-              id="related-title"
-              className="text-white font-black text-3xl tracking-tight mb-8"
-            >
+            <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">
               Похожие товары
             </h2>
 
@@ -881,7 +738,7 @@ export default function ProductPage() {
         finalPrice={finalPrice}
       />
 
-      {/* Fullscreen image zoom */}
+      {/* Fullscreen viewer */}
       <AnimatePresence>
         {imgZoomed && hasImages && (
           <motion.div
@@ -890,25 +747,55 @@ export default function ProductPage() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
           >
             {gallery[activePhoto]?.type === "video" ? (
-              <video
-                src={gallery[activePhoto].src}
-                controls
-                className="max-w-full max-h-full object-contain rounded-2xl"
-              />
+              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" onClick={(e) => e.stopPropagation()} />
             ) : (
               <motion.img
                 src={gallery[activePhoto]?.src}
                 alt={product.name}
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                className="max-w-full max-h-full object-contain rounded-2xl"
+                className="max-w-full max-h-full object-contain rounded-2xl select-none"
+                onClick={(e) => e.stopPropagation()}
+                draggable={false}
               />
             )}
+
+            {gallery.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevPhoto();
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+                  aria-label="Предыдущее фото"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextPhoto();
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+                  aria-label="Следующее фото"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </>
+            )}
+
             <button
-              onClick={() => setImgZoomed(false)}
-              className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImgZoomed(false);
+              }}
+              className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors text-2xl"
               aria-label="Закрыть"
             >
               ✕
@@ -919,4 +806,3 @@ export default function ProductPage() {
     </main>
   );
 }
-
