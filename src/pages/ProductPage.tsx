@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart,
@@ -13,9 +13,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { getProductById, loadProducts, type Product } from "../lib/api";
+import { reviews } from "../store-data/reviews";
 import { contacts } from "../store-data/contacts";
-import { reviews as allReviews } from "../store-data/reviews";
-import { formatPrice, reviewsWord } from "../lib/utils";
+import { formatPrice } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { analytics } from "../lib/analytics";
@@ -27,10 +27,18 @@ const PROMOCODES: Record<string, number> = {
   SUN12: 15,
 };
 
-type GalleryItem = { type: "video" | "image"; src: string };
+function reviewCountWord(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod100 >= 11 && mod100 <= 14) return `${count} отзывов`;
+  if (mod10 === 1) return `${count} отзыв`;
+  if (mod10 >= 2 && mod10 <= 4) return `${count} отзыва`;
+  return `${count} отзывов`;
+}
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +71,11 @@ export default function ProductPage() {
 
       if (!isActive) return;
 
-      setRelated(all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4));
+      setRelated(
+        all
+          .filter((x) => x.category === p.category && x.id !== p.id)
+          .slice(0, 4)
+      );
       setLoading(false);
     }
 
@@ -77,17 +89,21 @@ export default function ProductPage() {
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
+  // gallery index
   const [activePhoto, setActivePhoto] = useState(0);
+  // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [orderOpen, setOrderOpen] = useState(false);
   const [imgZoomed, setImgZoomed] = useState(false);
-  const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
+  const [openSection, setOpenSection] = useState<
+    "about" | "details" | "delivery" | null
+  >("about");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
+  // promo state
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const [promoError, setPromoError] = useState(false);
 
   useEffect(() => {
     if (!product) return;
@@ -96,32 +112,40 @@ export default function ProductPage() {
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
     setActivePhoto(0);
-    const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
+    // select first available size by default
+    const firstAvailable =
+      product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(firstAvailable ? String(firstAvailable) : null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
     setPromoInput("");
-    setPromoError(false);
   }, [addViewed, product]);
 
   const fav = isFavorite(product?.id ?? "");
 
-  // Reviews for this product, most recent first — used both for the summary and
-  // as the "jump to" target when the reviews count is clicked.
-  const productReviews = useMemo(() => {
-    if (!product) return [];
-    return allReviews
-      .filter((r) => String(r.productId) === String(product.id))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [product]);
-
-  const latestReviewId = productReviews[0]?.id;
-
-  const gallery = useMemo<GalleryItem[]>(() => {
-    if (!product) return [];
-    const images = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
-    return images.map((src) => ({ type: "image" as const, src: String(src).trim() }));
+  // build gallery: video first, then images
+  const gallery = useMemo(() => {
+    if (!product) return [] as { type: "video" | "image"; src: string }[];
+    const videoItems: { type: "video" | "image"; src: string }[] = [];
+    const p = product as Product & { video?: string; videos?: string[] };
+    if (p.video && typeof p.video === "string")
+      videoItems.push({ type: "video", src: p.video });
+    if (Array.isArray(p.videos)) {
+      for (const v of p.videos)
+        if (v) videoItems.push({ type: "video", src: String(v) });
+    }
+    const images = Array.isArray(product.images)
+      ? product.images
+          .filter(Boolean)
+          .map((s) => ({ type: "image" as const, src: String(s).trim() }))
+      : typeof product.images === "string"
+        ? (product.images as string)
+            .split(";")
+            .filter(Boolean)
+            .map((s) => ({ type: "image" as const, src: s.trim() }))
+        : [];
+    return [...videoItems, ...images];
   }, [product]);
 
   const hasImages = gallery.length > 0;
@@ -132,7 +156,9 @@ export default function ProductPage() {
   }, [galleryLength]);
 
   const handleNextPhoto = useCallback(() => {
-    setActivePhoto((prev) => (prev === galleryLength - 1 ? 0 : prev + 1));
+    setActivePhoto((prev) =>
+      prev === galleryLength - 1 ? 0 : prev + 1
+    );
   }, [galleryLength]);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -141,14 +167,9 @@ export default function ProductPage() {
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
     if (touchStartX === null) return;
-
     const delta = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
-    if (delta > 50) {
-      handlePrevPhoto();
-    } else if (delta < -50) {
-      handleNextPhoto();
-    }
-
+    if (delta > 50) handlePrevPhoto();
+    else if (delta < -50) handleNextPhoto();
     setTouchStartX(null);
   };
 
@@ -164,12 +185,15 @@ export default function ProductPage() {
 
   const selectedSizeObj = useMemo(() => {
     if (!product || !selectedSize) return undefined;
-    return product.sizes.find((s) => String(s.value) === String(selectedSize));
+    return product.sizes.find(
+      (s) => String(s.value) === String(selectedSize)
+    );
   }, [product, selectedSize]);
 
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
   const wbQty = Number(selectedSizeObj?.stockWB ?? 0);
 
+  // promo calculations
   const promoPercent = appliedPromo ? (PROMOCODES[appliedPromo] ?? 0) : 0;
   const basePrice = product?.price ?? 0;
   const finalPrice = useMemo(() => {
@@ -180,13 +204,15 @@ export default function ProductPage() {
 
   const applyPromo = () => {
     const code = promoInput.trim().toUpperCase();
-    if (!code || !(code in PROMOCODES)) {
+    if (!code) {
       setAppliedPromo(null);
-      setPromoError(true);
+      return;
+    }
+    if (!(code in PROMOCODES)) {
+      setAppliedPromo(null);
       return;
     }
     setAppliedPromo(code);
-    setPromoError(false);
   };
 
   const handleOrderClick = () => {
@@ -203,6 +229,21 @@ export default function ProductPage() {
       return;
     }
     setOrderOpen(true);
+  };
+
+  // Navigate to reviews page for this product
+  // Find first review for this product to highlight it
+  const handleReviewsClick = () => {
+    if (!product) return;
+    const firstReview = reviews.find(
+      (r) => String(r.productId) === String(product.id)
+    );
+    const params = new URLSearchParams();
+    params.set("product", product.id);
+    if (firstReview) {
+      params.set("review", firstReview.id);
+    }
+    navigate(`/reviews?${params.toString()}`);
   };
 
   if (loading) {
@@ -222,7 +263,10 @@ export default function ProductPage() {
         <div className="text-center">
           <p className="text-white/20 text-6xl mb-6">404</p>
           <p className="text-white/40 text-lg mb-8">Товар не найден</p>
-          <Link to="/catalog" className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all">
+          <Link
+            to="/catalog"
+            className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all"
+          >
             Вернуться в каталог
           </Link>
         </div>
@@ -233,12 +277,21 @@ export default function ProductPage() {
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <nav aria-label="Хлебные крошки" className="flex items-center gap-2 py-6 text-sm text-white/30">
-          <Link to="/" className="hover:text-white transition-colors">Главная</Link>
+        <nav
+          aria-label="Хлебные крошки"
+          className="flex items-center gap-2 py-6 text-sm text-white/30"
+        >
+          <Link to="/" className="hover:text-white transition-colors">
+            Главная
+          </Link>
           <span>/</span>
-          <Link to="/catalog" className="hover:text-white transition-colors">Каталог</Link>
+          <Link to="/catalog" className="hover:text-white transition-colors">
+            Каталог
+          </Link>
           <span>/</span>
-          <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
+          <span className="text-white/60 truncate max-w-[200px]">
+            {product.name}
+          </span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
@@ -260,13 +313,17 @@ export default function ProductPage() {
                     className="w-full h-full"
                   >
                     {gallery[activePhoto]?.type === "video" ? (
-                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
+                      <video
+                        src={gallery[activePhoto].src}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <img
                         src={gallery[activePhoto]?.src}
                         onClick={() => setImgZoomed(true)}
                         alt={`${product.name} — фото ${activePhoto + 1}`}
-                        className="w-full h-full object-cover cursor-zoom-in"
+                        className="w-full h-full object-cover"
                         loading={activePhoto === 0 ? "eager" : "lazy"}
                       />
                     )}
@@ -305,7 +362,9 @@ export default function ProductPage() {
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
-                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
+                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">
+                    NEW
+                  </span>
                 )}
               </div>
             </div>
@@ -315,21 +374,30 @@ export default function ProductPage() {
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
                 {gallery.map((item, i) => (
                   <button
-                    key={`${item.src}-${i}`}
+                    key={item.src}
                     onClick={(e) => {
                       e.stopPropagation();
                       setActivePhoto(i);
                     }}
                     className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                      i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
+                      i === activePhoto
+                        ? "border-white ring-2 ring-white/50"
+                        : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
                     aria-pressed={i === activePhoto}
                   >
                     {item.type === "video" ? (
-                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
+                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">
+                        ▶
+                      </div>
                     ) : (
-                      <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={item.src}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     )}
                   </button>
                 ))}
@@ -337,6 +405,7 @@ export default function ProductPage() {
             )}
           </div>
 
+          {/* Info panel */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -345,20 +414,29 @@ export default function ProductPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-white/30 text-xs uppercase tracking-widest">{product.category}</span>
+                <span className="text-white/30 text-xs uppercase tracking-widest">
+                  {product.category}
+                </span>
                 {product.gender && (
                   <>
                     <span className="text-white/15">·</span>
-                    <span className="text-white/30 text-xs">{product.gender}</span>
+                    <span className="text-white/30 text-xs">
+                      {product.gender}
+                    </span>
                   </>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    navigator.share?.({ title: product.name, url: window.location.href }).catch(() =>
-                      navigator.clipboard.writeText(window.location.href)
-                    );
+                    navigator.share
+                      ?.({
+                        title: product.name,
+                        url: window.location.href,
+                      })
+                      .catch(() =>
+                        navigator.clipboard.writeText(window.location.href)
+                      );
                   }}
                   className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:border-white/30 transition-all"
                   aria-label="Поделиться"
@@ -368,9 +446,13 @@ export default function ProductPage() {
                 <button
                   onClick={() => toggle(product.id)}
                   className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-                    fav ? "bg-white border-white text-black" : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
+                    fav
+                      ? "bg-white border-white text-black"
+                      : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
                   }`}
-                  aria-label={fav ? "Убрать из избранного" : "Добавить в избранное"}
+                  aria-label={
+                    fav ? "Убрать из избранного" : "Добавить в избранное"
+                  }
                   aria-pressed={fav}
                 >
                   <Heart size={15} fill={fav ? "currentColor" : "none"} />
@@ -378,40 +460,47 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">{product.name}</h1>
+            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">
+              {product.name}
+            </h1>
 
+            {/* Rating row with clickable review count */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
                     size={14}
-                    className={product.reviewsCount > 0 && s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
+                    className={
+                      product.reviewsCount > 0 &&
+                      s <= Math.round(product.rating)
+                        ? "text-yellow-400 fill-yellow-400"
+                        : "text-white/15"
+                    }
                   />
                 ))}
               </div>
+              <span className="text-white font-bold text-sm">
+                {product.reviewsCount > 0 ? product.rating : "Нет отзывов"}
+              </span>
 
+              {/* Clickable review count */}
               {product.reviewsCount > 0 ? (
-                <>
-                  <span className="text-white font-bold text-sm">{product.rating}</span>
-                  <Link
-                    to={`/reviews?product=${product.id}${latestReviewId ? `&review=${latestReviewId}` : ""}`}
-                    onClick={() => latestReviewId && analytics.clickReview(product.id, latestReviewId)}
-                    className="text-white/40 text-sm underline decoration-white/20 underline-offset-4 hover:text-white hover:decoration-white/50 transition-colors"
-                  >
-                    {product.reviewsCount} {reviewsWord(product.reviewsCount)}
-                  </Link>
-                </>
+                <button
+                  onClick={handleReviewsClick}
+                  className="text-white/40 text-sm hover:text-white underline underline-offset-2 decoration-white/30 hover:decoration-white transition-colors cursor-pointer"
+                >
+                  {reviewCountWord(product.reviewsCount)}
+                </button>
               ) : (
                 <span className="text-white/30 text-sm">Нет отзывов</span>
               )}
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">{formatPrice(product.price)}</span>
-              {product.oldPrice && product.oldPrice > product.price ? (
-                <span className="text-white/30 text-lg line-through">{formatPrice(product.oldPrice)}</span>
-              ) : null}
+              <span className="text-white font-black text-4xl">
+                {formatPrice(product.price)}
+              </span>
             </div>
 
             {/* Промокод */}
@@ -419,26 +508,27 @@ export default function ProductPage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   value={promoInput}
-                  onChange={(e) => {
-                    setPromoInput(e.target.value);
-                    setPromoError(false);
-                  }}
+                  onChange={(e) => setPromoInput(e.target.value)}
                   placeholder="Промокод"
-                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none focus:border-white/40 transition-all"
+                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none"
                 />
                 <button
                   onClick={applyPromo}
-                  className="px-5 py-3 rounded-xl bg-white text-black font-medium shrink-0 hover:bg-white/90 transition-all"
+                  className="px-5 py-3 rounded-xl bg-white text-black font-medium"
                 >
                   Применить
                 </button>
+                {promoInput && !appliedPromo && promoInput.trim() !== "" && (
+                  <div className="text-rose-400 text-sm ml-3">
+                    Промокод не найден
+                  </div>
+                )}
               </div>
 
-              {promoError && <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>}
-
-              {appliedPromo && !promoError && (
-                <div className="text-emerald-400 text-sm mt-2">
-                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}
+              {appliedPromo && (
+                <div className="text-white/40 text-sm mt-2">
+                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена:{" "}
+                  {formatPrice(finalPrice)} ₽
                 </div>
               )}
             </div>
@@ -446,7 +536,8 @@ export default function ProductPage() {
             {product.colors?.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-                  Цвет: <span className="text-white">{selectedColor}</span>
+                  Цвет:{" "}
+                  <span className="text-white">{selectedColor}</span>
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
@@ -454,15 +545,26 @@ export default function ProductPage() {
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
                       className={`group relative w-8 h-8 rounded-full border-2 transition-all ${
-                        selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"
+                        selectedColor === color.name
+                          ? "border-white scale-110"
+                          : "border-white/20 hover:border-white/50"
                       }`}
-                      style={{ backgroundColor: color.code ?? "#ffffff" }}
+                      style={{
+                        backgroundColor: color.code ?? "#ffffff",
+                      }}
                       aria-label={color.name}
                       aria-pressed={selectedColor === color.name}
                     >
                       {selectedColor === color.name && (
                         <span className="absolute inset-0 flex items-center justify-center">
-                          <Check size={12} className={(color.code ?? "#ffffff") === "#ffffff" ? "text-black" : "text-white"} />
+                          <Check
+                            size={12}
+                            className={
+                              (color.code ?? "#ffffff") === "#ffffff"
+                                ? "text-black"
+                                : "text-white"
+                            }
+                          />
                         </span>
                       )}
                     </button>
@@ -474,12 +576,18 @@ export default function ProductPage() {
             {/* Размеры */}
             {product.sizes.length > 0 && (
               <div className="mb-8">
-                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+                  Размер
+                </p>
 
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((size) => {
-                    const available = Number(size.stockOffline ?? 0) > 0 || Number(size.stockWB ?? 0) > 0;
-                    const isSelected = String(selectedSize) === String(size.value);
+                    const available =
+                      Number(size.stockOffline ?? 0) > 0 ||
+                      Number(size.stockWB ?? 0) > 0;
+
+                    const isSelected =
+                      String(selectedSize) === String(size.value);
 
                     return (
                       <button
@@ -504,18 +612,24 @@ export default function ProductPage() {
             {/* Наличие по выбранному размеру */}
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {!selectedSize && (
-                <div>
-                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
-                </div>
+                <p className="text-white text-sm font-medium">
+                  Выберите размер, чтобы увидеть наличие
+                </p>
               )}
 
               {selectedSize && shopQty > 0 && (
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">✔ Есть в наличии в магазине</p>
-                    <p className="text-white/40 text-xs mt-1">{contacts.address}</p>
-                    <p className="text-white/30 text-xs">Способы покупки: заявка, WhatsApp, Telegram, MAX</p>
+                    <p className="text-white text-sm font-medium">
+                      ✔ Есть в наличии в магазине
+                    </p>
+                    <p className="text-white/40 text-xs mt-1">
+                      г. Изобильный, Ставропольский край, ул. Кирова, 2Г
+                    </p>
+                    <p className="text-white/30 text-xs">
+                      Способы покупки: заявка, WhatsApp, Telegram, MAX
+                    </p>
                   </div>
                 </div>
               )}
@@ -524,16 +638,20 @@ export default function ProductPage() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">✔ Есть на Wildberries</p>
-                    <p className="text-white/40 text-xs mt-1">Доставка со склада WB</p>
+                    <p className="text-white text-sm font-medium">
+                      ✔ Есть на Wildberries
+                    </p>
+                    <p className="text-white/40 text-xs mt-1">
+                      Доставка со склада WB
+                    </p>
                   </div>
                 </div>
               )}
 
               {selectedSize && shopQty === 0 && wbQty === 0 && (
-                <div>
-                  <p className="text-white text-sm font-medium">❌ Нет в наличии</p>
-                </div>
+                <p className="text-white text-sm font-medium">
+                  ❌ Нет в наличии
+                </p>
               )}
             </div>
 
@@ -542,23 +660,29 @@ export default function ProductPage() {
               <button
                 onClick={handleOrderClick}
                 className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  !selectedSize ? "bg-white/50 text-black/50 cursor-not-allowed" : "bg-white text-black hover:bg-white/90"
+                  !selectedSize
+                    ? "bg-white/50 text-black/50 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-white/90"
                 }`}
               >
-                {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Выберите размер"}
+                {selectedSize
+                  ? shopQty === 0 && wbQty > 0
+                    ? "Купить на WB"
+                    : "Оставить заявку"
+                  : "Выберите размер"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href={selectedSize ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  href={
+                    selectedSize
+                      ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
+                      : "#"
+                  }
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={(e) => {
-                    if (!selectedSize) {
-                      e.preventDefault();
-                      return;
-                    }
-                    analytics.clickContact("whatsapp");
+                  onClick={() => {
+                    if (selectedSize) analytics.clickContact("whatsapp");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                     selectedSize
@@ -570,15 +694,15 @@ export default function ProductPage() {
                   WhatsApp
                 </a>
                 <a
-                  href={selectedSize ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  href={
+                    selectedSize
+                      ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
+                      : "#"
+                  }
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={(e) => {
-                    if (!selectedSize) {
-                      e.preventDefault();
-                      return;
-                    }
-                    analytics.clickContact("telegram");
+                  onClick={() => {
+                    if (selectedSize) analytics.clickContact("telegram");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                     selectedSize
@@ -613,14 +737,22 @@ export default function ProductPage() {
               </a>
             </div>
 
+            {/* Accordion sections */}
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "about" ? null : "about"))}
+                  onClick={() =>
+                    setOpenSection((v) => (v === "about" ? null : "about"))
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">О товаре</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    О товаре
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "about" && (
@@ -631,7 +763,8 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        {product.description || "Подробное описание будет добавлено позже."}
+                        {product.description ||
+                          "Подробное описание будет добавлено позже."}
                       </p>
                     </motion.div>
                   )}
@@ -640,11 +773,20 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "details" ? null : "details"))}
+                  onClick={() =>
+                    setOpenSection((v) =>
+                      v === "details" ? null : "details"
+                    )
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Характеристики</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Характеристики
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "details" && (
@@ -656,7 +798,10 @@ export default function ProductPage() {
                     >
                       <div className="px-4 pb-4 space-y-2 text-sm text-white/60">
                         {details.map((item) => (
-                          <div key={item.label} className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
+                          <div
+                            key={item.label}
+                            className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0"
+                          >
                             <span>{item.label}</span>
                             <span className="text-white/80">{item.value}</span>
                           </div>
@@ -669,11 +814,20 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "delivery" ? null : "delivery"))}
+                  onClick={() =>
+                    setOpenSection((v) =>
+                      v === "delivery" ? null : "delivery"
+                    )
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Доставка и оплата</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Доставка и оплата
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "delivery" && (
@@ -684,54 +838,26 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по адресу {contacts.address}. Для заказа обратитесь через
-                        WhatsApp, Telegram, MAX или форму заявки.
+                        Возможна доставка по запросу, а также самовывоз по
+                        адресу г. Изобильный, ул. Кирова, 2Г. Для заказа
+                        обратитесь через WhatsApp, Telegram, MAX или форму
+                        заявки.
                       </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             </div>
-
-            {productReviews.length > 0 && (
-              <div className="mt-8 border-t border-white/8 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Отзывы</h2>
-                  <Link
-                    to={`/reviews?product=${product.id}`}
-                    className="text-xs text-white/40 hover:text-white transition-colors"
-                  >
-                    Все отзывы →
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {productReviews.slice(0, 2).map((review) => (
-                    <Link
-                      key={review.id}
-                      to={`/reviews?product=${product.id}&review=${review.id}`}
-                      onClick={() => analytics.clickReview(product.id, review.id)}
-                      className="block rounded-2xl border border-white/8 bg-white/4 p-4 hover:border-white/20 transition-all"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-white text-sm font-semibold">{review.name}</span>
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star key={s} size={11} className={s <= review.rating ? "text-yellow-400 fill-yellow-400" : "text-white/15"} />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-white/50 text-sm line-clamp-2">{review.text}</p>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </motion.div>
         </div>
 
+        {/* Related products */}
         {related.length > 0 && (
           <section className="mt-20" aria-labelledby="related-title">
-            <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">
+            <h2
+              id="related-title"
+              className="text-white font-black text-3xl tracking-tight mb-8"
+            >
               Похожие товары
             </h2>
 
@@ -755,6 +881,7 @@ export default function ProductPage() {
         finalPrice={finalPrice}
       />
 
+      {/* Fullscreen image zoom */}
       <AnimatePresence>
         {imgZoomed && hasImages && (
           <motion.div
@@ -765,7 +892,11 @@ export default function ProductPage() {
             onClick={() => setImgZoomed(false)}
           >
             {gallery[activePhoto]?.type === "video" ? (
-              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
+              <video
+                src={gallery[activePhoto].src}
+                controls
+                className="max-w-full max-h-full object-contain rounded-2xl"
+              />
             ) : (
               <motion.img
                 src={gallery[activePhoto]?.src}
