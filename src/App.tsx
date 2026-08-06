@@ -1,3 +1,4 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -16,6 +17,26 @@ import ReviewsPage from "./pages/ReviewsPage";
 import ContactsPage from "./pages/ContactsPage";
 import FAQPage from "./pages/FAQPage";
 import FavoritesPage from "./pages/FavoritesPage";
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen bg-[#0a0a0b]">
+        <Header />
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/catalog" element={<CatalogPage />} />
+          <Route path="/product/:id" element={<ProductPage />} />
+          <Route path="/reviews" element={<ReviewsPage />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+        <Footer />
+      </div>
+    </BrowserRouter>
+  );
+}
 
 // Page transition wrapper
 function PageWrapper({ children }: { children: React.ReactNode }) {
