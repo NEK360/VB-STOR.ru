@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Star, ExternalLink, MessageCircle, Check, ChevronLeft, ChevronRight, Share2, ChevronDown } from "lucide-react";
+import {
+  Heart,
+  Star,
+  ExternalLink,
+  MessageCircle,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Share2,
+  ChevronDown,
+} from "lucide-react";
 import { getProductById, loadProducts, type Product } from "../lib/api";
 import { contacts } from "../store-data/contacts";
-import { formatPrice } from "../lib/utils";
+import { reviews as allReviews } from "../store-data/reviews";
+import { formatPrice, reviewsWord } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { analytics } from "../lib/analytics";
@@ -16,10 +27,7 @@ const PROMOCODES: Record<string, number> = {
   SUN12: 15,
 };
 
-interface GalleryItem {
-  type: "video" | "image";
-  src: string;
-}
+type GalleryItem = { type: "video" | "image"; src: string };
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,11 +63,7 @@ export default function ProductPage() {
 
       if (!isActive) return;
 
-      setRelated(
-        all
-          .filter((x) => x.category === p.category && x.id !== p.id)
-          .slice(0, 4)
-      );
+      setRelated(all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4));
       setLoading(false);
     }
 
@@ -73,9 +77,7 @@ export default function ProductPage() {
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
-  // gallery index
   const [activePhoto, setActivePhoto] = useState(0);
-  // size/color
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [orderOpen, setOrderOpen] = useState(false);
@@ -83,9 +85,9 @@ export default function ProductPage() {
   const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  // promo state
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState(false);
 
   useEffect(() => {
     if (!product) return;
@@ -94,28 +96,35 @@ export default function ProductPage() {
     addViewed(product.id);
     analytics.viewProduct(product.id, product.name, product.price);
     setActivePhoto(0);
-    // select first available size by default
     const firstAvailable = product.sizes?.find((s) => s.status !== "unavailable")?.value ?? null;
     setSelectedSize(firstAvailable ? String(firstAvailable) : null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
     setAppliedPromo(null);
     setPromoInput("");
+    setPromoError(false);
   }, [addViewed, product]);
 
   const fav = isFavorite(product?.id ?? "");
 
-  // build gallery: video first, then images
+  // Reviews for this product, most recent first — used both for the summary and
+  // as the "jump to" target when the reviews count is clicked.
+  const productReviews = useMemo(() => {
+    if (!product) return [];
+    return allReviews
+      .filter((r) => String(r.productId) === String(product.id))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [product]);
+
+  const latestReviewId = productReviews[0]?.id;
+
   const gallery = useMemo<GalleryItem[]>(() => {
     if (!product) return [];
-    const images = Array.isArray(product.images)
-      ? product.images.filter(Boolean).map((s) => ({ type: "image" as const, src: String(s).trim() }))
-      : [];
-    return images;
+    const images = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
+    return images.map((src) => ({ type: "image" as const, src: String(src).trim() }));
   }, [product]);
 
   const hasImages = gallery.length > 0;
-
   const galleryLength = gallery.length || 1;
 
   const handlePrevPhoto = useCallback(() => {
@@ -153,7 +162,6 @@ export default function ProductPage() {
     [product]
   );
 
-  // selected size object
   const selectedSizeObj = useMemo(() => {
     if (!product || !selectedSize) return undefined;
     return product.sizes.find((s) => String(s.value) === String(selectedSize));
@@ -162,7 +170,6 @@ export default function ProductPage() {
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
   const wbQty = Number(selectedSizeObj?.stockWB ?? 0);
 
-  // promo calculations
   const promoPercent = appliedPromo ? (PROMOCODES[appliedPromo] ?? 0) : 0;
   const basePrice = product?.price ?? 0;
   const finalPrice = useMemo(() => {
@@ -173,15 +180,13 @@ export default function ProductPage() {
 
   const applyPromo = () => {
     const code = promoInput.trim().toUpperCase();
-    if (!code) {
+    if (!code || !(code in PROMOCODES)) {
       setAppliedPromo(null);
-      return;
-    }
-    if (!(code in PROMOCODES)) {
-      setAppliedPromo(null);
+      setPromoError(true);
       return;
     }
     setAppliedPromo(code);
+    setPromoError(false);
   };
 
   const handleOrderClick = () => {
@@ -189,12 +194,10 @@ export default function ProductPage() {
       alert("Пожалуйста, выберите размер");
       return;
     }
-    // if size exists but no stock at all — block
     if (shopQty === 0 && wbQty === 0) {
       alert("Выбранный размер отсутствует");
       return;
     }
-    // if only WB — open WB link
     if (shopQty === 0 && wbQty > 0) {
       if (product?.wbUrl) window.open(product.wbUrl, "_blank");
       return;
@@ -256,13 +259,17 @@ export default function ProductPage() {
                     transition={{ duration: 0.3 }}
                     className="w-full h-full"
                   >
-                    <img
-                      src={gallery[activePhoto]?.src}
-                      onClick={() => setImgZoomed(true)}
-                      alt={`${product.name} — фото ${activePhoto + 1}`}
-                      className="w-full h-full object-cover cursor-zoom-in"
-                      loading={activePhoto === 0 ? "eager" : "lazy"}
-                    />
+                    {gallery[activePhoto]?.type === "video" ? (
+                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
+                    ) : (
+                      <img
+                        src={gallery[activePhoto]?.src}
+                        onClick={() => setImgZoomed(true)}
+                        alt={`${product.name} — фото ${activePhoto + 1}`}
+                        className="w-full h-full object-cover cursor-zoom-in"
+                        loading={activePhoto === 0 ? "eager" : "lazy"}
+                      />
+                    )}
                   </motion.div>
                 </AnimatePresence>
               ) : (
@@ -308,7 +315,7 @@ export default function ProductPage() {
               <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
                 {gallery.map((item, i) => (
                   <button
-                    key={item.src}
+                    key={`${item.src}-${i}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setActivePhoto(i);
@@ -319,7 +326,11 @@ export default function ProductPage() {
                     aria-label={`Фото ${i + 1}`}
                     aria-pressed={i === activePhoto}
                   >
-                    <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    {item.type === "video" ? (
+                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
+                    ) : (
+                      <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -345,10 +356,12 @@ export default function ProductPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    navigator.share?.({ title: product.name, url: window.location.href }).catch(() => navigator.clipboard.writeText(window.location.href));
+                    navigator.share?.({ title: product.name, url: window.location.href }).catch(() =>
+                      navigator.clipboard.writeText(window.location.href)
+                    );
                   }}
                   className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:border-white/30 transition-all"
-                    aria-label="Поделиться"
+                  aria-label="Поделиться"
                 >
                   <Share2 size={15} />
                 </button>
@@ -377,12 +390,28 @@ export default function ProductPage() {
                   />
                 ))}
               </div>
-              <span className="text-white font-bold text-sm">{product.reviewsCount > 0 ? product.rating : "Нет отзывов"}</span>
-              <span className="text-white/30 text-sm">{product.reviewsCount > 0 ? `${product.reviewsCount} отзывов` : "Нет отзывов"}</span>
+
+              {product.reviewsCount > 0 ? (
+                <>
+                  <span className="text-white font-bold text-sm">{product.rating}</span>
+                  <Link
+                    to={`/reviews?product=${product.id}${latestReviewId ? `&review=${latestReviewId}` : ""}`}
+                    onClick={() => latestReviewId && analytics.clickReview(product.id, latestReviewId)}
+                    className="text-white/40 text-sm underline decoration-white/20 underline-offset-4 hover:text-white hover:decoration-white/50 transition-colors"
+                  >
+                    {product.reviewsCount} {reviewsWord(product.reviewsCount)}
+                  </Link>
+                </>
+              ) : (
+                <span className="text-white/30 text-sm">Нет отзывов</span>
+              )}
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
               <span className="text-white font-black text-4xl">{formatPrice(product.price)}</span>
+              {product.oldPrice && product.oldPrice > product.price ? (
+                <span className="text-white/30 text-lg line-through">{formatPrice(product.oldPrice)}</span>
+              ) : null}
             </div>
 
             {/* Промокод */}
@@ -390,29 +419,35 @@ export default function ProductPage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   value={promoInput}
-                  onChange={(e) => setPromoInput(e.target.value)}
+                  onChange={(e) => {
+                    setPromoInput(e.target.value);
+                    setPromoError(false);
+                  }}
                   placeholder="Промокод"
-                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none"
+                  className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none focus:border-white/40 transition-all"
                 />
                 <button
                   onClick={applyPromo}
-                  className="px-5 py-3 rounded-xl bg-white text-black font-medium"
+                  className="px-5 py-3 rounded-xl bg-white text-black font-medium shrink-0 hover:bg-white/90 transition-all"
                 >
                   Применить
                 </button>
               </div>
-              {promoInput && !appliedPromo && promoInput.trim() !== "" && (
-                <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>
-              )}
 
-              {appliedPromo && (
-                <div className="text-white/40 text-sm mt-2">Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}</div>
+              {promoError && <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>}
+
+              {appliedPromo && !promoError && (
+                <div className="text-emerald-400 text-sm mt-2">
+                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}
+                </div>
               )}
             </div>
 
-            {product.colors && product.colors.length > 0 && (
+            {product.colors?.length > 0 && (
               <div className="mb-6">
-                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Цвет: <span className="text-white">{selectedColor}</span></p>
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+                  Цвет: <span className="text-white">{selectedColor}</span>
+                </p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
                     <button
@@ -454,8 +489,8 @@ export default function ProductPage() {
                           isSelected
                             ? "bg-white text-black border-white scale-105"
                             : available
-                            ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                            : "bg-white/5 text-white/30 border-white/10"
+                              ? "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                              : "bg-white/5 text-white/30 border-white/10"
                         }`}
                       >
                         {size.value}
@@ -518,13 +553,17 @@ export default function ProductPage() {
                   href={selectedSize ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={() => {
-                    if (selectedSize) {
-                      analytics.clickContact("whatsapp");
+                  onClick={(e) => {
+                    if (!selectedSize) {
+                      e.preventDefault();
+                      return;
                     }
+                    analytics.clickContact("whatsapp");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
-                    selectedSize ? "bg-green-600/15 border border-green-600/25 text-green-400 hover:bg-green-600/25" : "bg-green-600/8 border border-green-600/15 text-green-400/50 cursor-not-allowed"
+                    selectedSize
+                      ? "bg-green-600/15 border border-green-600/25 text-green-400 hover:bg-green-600/25"
+                      : "bg-green-600/8 border border-green-600/15 text-green-400/50 cursor-not-allowed"
                   }`}
                 >
                   <MessageCircle size={16} />
@@ -534,13 +573,17 @@ export default function ProductPage() {
                   href={selectedSize ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
-                  onClick={() => {
-                    if (selectedSize) {
-                      analytics.clickContact("telegram");
+                  onClick={(e) => {
+                    if (!selectedSize) {
+                      e.preventDefault();
+                      return;
                     }
+                    analytics.clickContact("telegram");
                   }}
                   className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
-                    selectedSize ? "bg-blue-600/15 border border-blue-600/25 text-blue-400 hover:bg-blue-600/25" : "bg-blue-600/8 border border-blue-600/15 text-blue-400/50 cursor-not-allowed"
+                    selectedSize
+                      ? "bg-blue-600/15 border border-blue-600/25 text-blue-400 hover:bg-blue-600/25"
+                      : "bg-blue-600/8 border border-blue-600/15 text-blue-400/50 cursor-not-allowed"
                   }`}
                 >
                   <MessageCircle size={16} />
@@ -587,7 +630,9 @@ export default function ProductPage() {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">{product.description || "Подробное описание будет добавлено позже."}</p>
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
+                        {product.description || "Подробное описание будет добавлено позже."}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -639,13 +684,48 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по адресу {contacts.address}. Для заказа обратитесь через WhatsApp, Telegram, MAX или форму заявки.
+                        Возможна доставка по запросу, а также самовывоз по адресу {contacts.address}. Для заказа обратитесь через
+                        WhatsApp, Telegram, MAX или форму заявки.
                       </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             </div>
+
+            {productReviews.length > 0 && (
+              <div className="mt-8 border-t border-white/8 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Отзывы</h2>
+                  <Link
+                    to={`/reviews?product=${product.id}`}
+                    className="text-xs text-white/40 hover:text-white transition-colors"
+                  >
+                    Все отзывы →
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {productReviews.slice(0, 2).map((review) => (
+                    <Link
+                      key={review.id}
+                      to={`/reviews?product=${product.id}&review=${review.id}`}
+                      onClick={() => analytics.clickReview(product.id, review.id)}
+                      className="block rounded-2xl border border-white/8 bg-white/4 p-4 hover:border-white/20 transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-white text-sm font-semibold">{review.name}</span>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star key={s} size={11} className={s <= review.rating ? "text-yellow-400 fill-yellow-400" : "text-white/15"} />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-white/50 text-sm line-clamp-2">{review.text}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
 
@@ -684,13 +764,17 @@ export default function ProductPage() {
             className="fixed inset-0 z-[400] flex items-center justify-center bg-black/95 p-4"
             onClick={() => setImgZoomed(false)}
           >
-            <motion.img
-              src={gallery[activePhoto]?.src}
-              alt={product.name}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              className="max-w-full max-h-full object-contain rounded-2xl"
-            />
+            {gallery[activePhoto]?.type === "video" ? (
+              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" />
+            ) : (
+              <motion.img
+                src={gallery[activePhoto]?.src}
+                alt={product.name}
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="max-w-full max-h-full object-contain rounded-2xl"
+              />
+            )}
             <button
               onClick={() => setImgZoomed(false)}
               className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
@@ -704,3 +788,4 @@ export default function ProductPage() {
     </main>
   );
 }
+
