@@ -153,7 +153,6 @@ return (
                 ))}
               </div>
             )}
-          </div>
 
           {/* Info */}
           <div className="p-4">
