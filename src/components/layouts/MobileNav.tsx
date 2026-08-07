@@ -77,4 +77,5 @@ export default function MobileNav() {
 </div>
    </div>
     </nav>
+);
 )
