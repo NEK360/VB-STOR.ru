@@ -12,7 +12,7 @@ export interface Review {
 export const reviews: Review[] = [
   {
     id: "1",
-    productId: "861900001",
+    productId: "533608693",
     name: "Степанова Наталья",
     rating: 5,
     date: "2026-04-02",
@@ -21,7 +21,7 @@ export const reviews: Review[] = [
   },
   {
     id: "2",
-    productId: "861900002",
+    productId: "543858397",
     name: "Эльмира",
     rating: 5,
     date: "2026-02-08",
@@ -30,7 +30,7 @@ export const reviews: Review[] = [
   },
   {
     id: "3",
-    productId: "861900003",
+    productId: "543874294",
     name: "Антон",
     rating: 5,
     date: "2026-03-18",
@@ -39,7 +39,7 @@ export const reviews: Review[] = [
   },
   {
     id: "4",
-    productId: "861900004",
+    productId: "543901422",
     name: "Покупатель",
     rating: 5,
     date: "2026-05-11",
@@ -84,7 +84,7 @@ export const reviews: Review[] = [
   },
   {
     id: "9",
-    productId: "861900003",
+    productId: "179904960",
     name: "Ирина",
     rating: 5,
     date: "2026-01-28",
@@ -102,7 +102,7 @@ export const reviews: Review[] = [
   },
   {
     id: "11",
-    productId: "861900005",
+    productId: "227073601",
     name: "Покупатель",
     rating: 5,
     date: "2026-01-26",
@@ -192,7 +192,7 @@ export const reviews: Review[] = [
   },
   {
     id: "21",
-    productId: "861900015",
+    productId: "227073601",
     name: "Евгения",
     rating: 5,
     date: "2026-01-16",
@@ -237,7 +237,7 @@ export const reviews: Review[] = [
   },
   {
     id: "26",
-    productId: "861900019",
+    productId: "227073601",
     name: "Кирилл",
     rating: 5,
     date: "2026-01-11",
@@ -567,5 +567,14 @@ export const reviews: Review[] = [
     date: "2025-12-06",
     text: "все понравилось! обувь отличная, по размеру подошли замечательно! очень красивые и удобные!",
     verified: true,
-  }
+  },
+  {
+    id: "62",
+    productId: "543901423",
+    name: "Ольга",
+    rating: 5,
+    date: "2025-11-07",
+    text: "Очень удобная обувь",
+    verified: true,
+  },
 ]
