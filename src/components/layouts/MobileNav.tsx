@@ -31,44 +31,48 @@ export default function MobileNav() {
                 }`
               }
             >
-              {({ isActive }) => (
-                <>
-                  <motion.div
-                    animate={{ scale: isActive ? 1.1 : 1 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 400,
-                      damping: 25,
-                    }}
-                  >
-                    <Icon
-                      size={20}
-                      className={isActive ? "text-white" : "text-white/35"}
-                      strokeWidth={isActive ? 2.5 : 1.5}
-                    />
-                  </motion.div>
+             {({ isActive }) => (
+  <>
+    <motion.div
+      animate={{ scale: isActive ? 1.1 : 1 }}
+      transition={{
+        type: "spring",
+        stiffness: 400,
+        damping: 25,
+      }}
+    >
+      <Icon
+        size={20}
+        className={isActive ? "text-white" : "text-white/35"}
+        strokeWidth={isActive ? 2.5 : 1.5}
+      />
+    </motion.div>
 
-                  {item.href === "/favorites" && count > 0 && (
-                    <motion.span
-                      key={count}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
-                    >
-                      {count}
-                    </motion.span>
-                  )}
+    {item.href === "/favorites" && count > 0 && (
+      <motion.span
+        key={count}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
+      >
+        {count}
+      </motion.span>
+    )}
 
-                  {isActive ? (
-                    <motion.div
-                      layoutId="mobile-nav-dot"
-                      className="w-1 h-1 rounded-full bg-white"
-                    />
-                  ) : (
-                    <div className="w-1 h-1" />
-                  )}
-                </>
-              )}
+    <span className="text-[10px] font-medium">
+      {item.label}
+    </span>
+
+    {isActive ? (
+      <motion.div
+        layoutId="mobile-nav-dot"
+        className="w-1 h-1 rounded-full bg-white"
+      />
+    ) : (
+      <div className="w-1 h-1" />
+    )}
+  </>
+)}
             </NavLink>
           );
         })}
