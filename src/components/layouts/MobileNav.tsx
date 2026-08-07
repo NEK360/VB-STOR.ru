@@ -43,6 +43,7 @@ export default function MobileNav() {
     isActive ? "text-white" : "text-white/35"
   }`
 }
+ >
                     {({ isActive }) => (
   <>
     <motion.div
