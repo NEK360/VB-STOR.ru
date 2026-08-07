@@ -35,7 +35,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 // while the canonical product route is /product/:id (matches ProductCard's `to`).
 function LegacyProductRedirect() {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/product/${id ?? ""}`} replace />;
+  return <Navigate to={`/catalog/${id ?? ""}`} replace />;
 }
 
 function AppRoutes() {
