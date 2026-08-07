@@ -74,3 +74,4 @@ export default function MobileNav() {
     </NavLink>
   );
 })}
+</div>
