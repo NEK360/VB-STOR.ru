@@ -7,7 +7,7 @@ import CustomCursor from "./components/ui/CustomCursor";
 import Header from "./components/layouts/Header";
 import Footer from "./components/layouts/Footer";
 import MobileNav from "./components/layouts/MobileNav";
-import ScrollToTop from "./components/layout/ScrollToTop";
+import ScrollToTop from "./components/layouts/ScrollToTop";
 import HomePage from "./pages/HomePage";
 import CatalogPage from "./pages/CatalogPage";
 import ProductPage from "./pages/ProductPage";
