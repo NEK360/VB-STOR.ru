@@ -3,12 +3,12 @@ import { motion } from "framer-motion";
 import { Home, Grid3X3, Tag, Heart, Phone } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
 
-const navItems = [
-  { href: "/", label: "Главная", icon: Home },
-  { href: "/catalog", label: "Каталог", icon: Grid3X3 },
-  { href: "/sale", label: "Скидки", icon: Tag },
-  { href: "/favorites", label: "Избранное", icon: Heart, showBadge: true },
-  { href: "/contacts", label: "Контакты", icon: Phone },
+const items = [
+  { to: "/", label: "Главная", icon: Home },
+  { to: "/catalog", label: "Каталог", icon: Grid3x3 },
+  { to: "/favorites", label: "Избранное", icon: Heart },
+  { to: "/reviews", label: "Отзывы", icon: MessageSquareText },
+  { to: "/contacts", label: "Контакты", icon: User },
 ];
 
 export default function MobileNav() {
