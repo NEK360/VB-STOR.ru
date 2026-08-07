@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, Grid3X3, Tag, Heart, Phone } from "lucide-react";
+import { Home, Grid3x3, Heart, MessageSquareText, User } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
 
 const navitems = [
