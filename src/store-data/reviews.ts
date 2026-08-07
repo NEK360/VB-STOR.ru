@@ -129,7 +129,7 @@ export const reviews: Review[] = [
   },
   {
     id: "14",
-    productId: "861900008",
+    productId: "227073601",
     name: "Наталья",
     rating: 5,
     date: "2026-01-23",
