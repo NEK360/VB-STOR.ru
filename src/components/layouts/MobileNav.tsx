@@ -1,9 +1,9 @@
-import { Link, useLocation } from "react-router-dom";
+import { navLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Home, Grid3x3, Heart, MessageSquareText, User } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
 
-const navitems = [
+const navItems = [
   { href: "/", label: "Главная", icon: Home },
   { href: "/catalog", label: "Каталог", icon: Grid3x3 },
   { href: "/favorites", label: "Избранное", icon: Heart },
@@ -24,7 +24,7 @@ export default function MobileNav() {
             const Icon = item.icon;
             const isActive = location.pathname === item.href || (item.href !== "/" && location.pathname.startsWith(item.href));
             return (
-              <Link
+              <navLink
                 key={item.href}
                 to={item.href}
                 className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all"
@@ -61,7 +61,7 @@ export default function MobileNav() {
                   />
                 )}
                 {!isActive && <div className="w-1 h-1" />}
-              </Link>
+              </navLink>
             );
           })}
         </div>
