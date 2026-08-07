@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Home, Grid3X3, Tag, Heart, Phone } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
 
-const items = [
+const navitems = [
   { href: "/", label: "Главная", icon: Home },
   { href: "/catalog", label: "Каталог", icon: Grid3x3 },
   { href: "/favorites", label: "Избранное", icon: Heart },
