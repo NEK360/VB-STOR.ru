@@ -31,7 +31,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
       className="group relative"
     >
       <Link
-        to={`/product/${product.id}`}
+        to={`/catalog/${product.id}`}
         className="block rounded-2xl overflow-hidden bg-white/5 border border-white/8 hover:border-white/20 transition-all"
       >
         <div className="relative aspect-square bg-white/5 overflow-hidden">
