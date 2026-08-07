@@ -4,11 +4,11 @@ import { Home, Grid3X3, Tag, Heart, Phone } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
 
 const items = [
-  { to: "/", label: "Главная", icon: Home },
-  { to: "/catalog", label: "Каталог", icon: Grid3x3 },
-  { to: "/favorites", label: "Избранное", icon: Heart },
-  { to: "/reviews", label: "Отзывы", icon: MessageSquareText },
-  { to: "/contacts", label: "Контакты", icon: User },
+  { href: "/", label: "Главная", icon: Home },
+  { href: "/catalog", label: "Каталог", icon: Grid3x3 },
+  { href: "/favorites", label: "Избранное", icon: Heart },
+  { href: "/reviews", label: "Отзывы", icon: MessageSquareText },
+  { href: "/contacts", label: "Контакты", icon: User },
 ];
 
 export default function MobileNav() {
