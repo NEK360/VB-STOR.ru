@@ -16,7 +16,7 @@ export default function MobileNav() {
   const { count } = useFavorites();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-xl border-t border-white/8 pb-[env(safe-area-inset-bottom)]">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-black/90 backdrop-blur-xl border-t border-white/8 pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex items-center justify-between px-2 py-2">
         <div className="flex items-center justify-around">
