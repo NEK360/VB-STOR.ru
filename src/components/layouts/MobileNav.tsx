@@ -1,4 +1,4 @@
-import { navLink, useLocation } from "react-router-dom";
+import { navLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Home, Grid3x3, Heart, MessageSquareText, User } from "lucide-react";
 import { useFavorites } from "../../hooks/useFavorites";
@@ -12,7 +12,6 @@ const navItems = [
 ];
 
 export default function MobileNav() {
-  const location = useLocation();
   const { count } = useFavorites();
 
   return (
@@ -20,74 +19,58 @@ export default function MobileNav() {
     >
       <div className="flex items-center justify-between px-2 py-2">
         <div className="flex items-center justify-around">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href || (item.href !== "/" && location.pathname.startsWith(item.href));
-            return (
-              <navLink
-                key={item.href}
-                to={item.href}
-                className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all"
-                aria-label={item.label}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <div className="relative">
-                  <motion.div
-                    animate={{ scale: isActive ? 1.1 : 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  >
-                    <Icon
-                      size={20}
-                     className={({ isActive }) =>
-  `relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
-    isActive ? "text-white" : "text-white/35"
-  }`
-}
- >
-                    {({ isActive }) => (
-  <>
-    <motion.div
-      animate={{ scale: isActive ? 1.1 : 1 }}
-      transition={{
-        type: "spring",
-        stiffness: 400,
-        damping: 25,
-      }}
+         {navItems.map((item) => {
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      key={item.href}
+      to={item.href}
+      end={item.href === "/"}
+      className={({ isActive }) =>
+        `relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+          isActive ? "text-white" : "text-white/35"
+        }`
+      }
     >
-      <Icon
-        size={20}
-        className={isActive ? "text-white" : "text-white/35"}
-        strokeWidth={isActive ? 2.5 : 1.5}
-      />
-    </motion.div>
+      {({ isActive }) => (
+        <>
+          <motion.div
+            animate={{ scale: isActive ? 1.1 : 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 25,
+            }}
+          >
+            <Icon
+              size={20}
+              className={isActive ? "text-white" : "text-white/35"}
+              strokeWidth={isActive ? 2.5 : 1.5}
+            />
+          </motion.div>
 
-    {item.href === "/favorites" && count > 0 && (
-      <motion.span
-        key={count}
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
-      >
-        {count}
-      </motion.span>
-    )}
+          {item.href === "/favorites" && count > 0 && (
+            <motion.span
+              key={count}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
+            >
+              {count}
+            </motion.span>
+          )}
 
-    {isActive ? (
-      <motion.div
-        layoutId="mobile-nav-dot"
-        className="w-1 h-1 rounded-full bg-white"
-      />
-    ) : (
-      <div className="w-1 h-1" />
-    )}
-  </>
-)}
-                {!isActive && <div className="w-1 h-1" />}
-              </navLink>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
+          {isActive ? (
+            <motion.div
+              layoutId="mobile-nav-dot"
+              className="w-1 h-1 rounded-full bg-white"
+            />
+          ) : (
+            <div className="w-1 h-1" />
+          )}
+        </>
+      )}
+    </NavLink>
   );
-}
+})}
