@@ -50,9 +50,9 @@ function AppRoutes() {
           <Route path="/" element={<PageWrapper><HomePage /></PageWrapper>} />
           <Route path="/catalog" element={<PageWrapper><CatalogPage /></PageWrapper>} />
           {/* Canonical product route — matches ProductCard's `to={`/product/${product.id}`}` */}
-          <Route path="/product/:id" element={<PageWrapper><ProductPage /></PageWrapper>} />
+          <Route path="/catalog/:id" element={<PageWrapper><ProductPage /></PageWrapper>} />
           {/* Legacy alias so old /catalog/:id links still resolve instead of 404-ing */}
-          <Route path="/catalog/:id" element={<LegacyProductRedirect />} />
+          <Route path="/product/:id" element={<LegacyProductRedirect />} />
           <Route path="/sale" element={<PageWrapper><SalePage /></PageWrapper>} />
           <Route path="/reviews" element={<PageWrapper><ReviewsPage /></PageWrapper>} />
           <Route path="/contacts" element={<PageWrapper><ContactsPage /></PageWrapper>} />
