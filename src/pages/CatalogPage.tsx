@@ -265,7 +265,7 @@ export default function CatalogPage() {
               onClick={() => setFilter("sale")}
               className={`text-sm px-4 py-2 rounded-xl transition-all ${filterParam === "sale" ? "bg-white text-black" : "bg-white/6 text-white/50 hover:text-white"}`}
             >
-              Скидки
+              Распродажа
             </button>
           </div>
 
