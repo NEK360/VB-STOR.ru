@@ -38,28 +38,49 @@ export default function MobileNav() {
                   >
                     <Icon
                       size={20}
-                      className={`transition-colors ${isActive ? "text-white" : "text-white/35"}`}
-                      strokeWidth={isActive ? 2.5 : 1.5}
-                    />
-                  </motion.div>
-                  {item.showBadge && count > 0 && (
-                    <motion.span
-                      key={count}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
-                    >
-                      {count}
-                    </motion.span>
-                  )}
-                </div>
-                {isActive && (
-                  <motion.div
-                    layoutId="mobile-nav-dot"
-                    className="w-1 h-1 rounded-full bg-white"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
+                     className={({ isActive }) =>
+  `relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+    isActive ? "text-white" : "text-white/35"
+  }`
+}
+                    {({ isActive }) => (
+  <>
+    <motion.div
+      animate={{ scale: isActive ? 1.1 : 1 }}
+      transition={{
+        type: "spring",
+        stiffness: 400,
+        damping: 25,
+      }}
+    >
+      <Icon
+        size={20}
+        className={isActive ? "text-white" : "text-white/35"}
+        strokeWidth={isActive ? 2.5 : 1.5}
+      />
+    </motion.div>
+
+    {item.href === "/favorites" && count > 0 && (
+      <motion.span
+        key={count}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
+      >
+        {count}
+      </motion.span>
+    )}
+
+    {isActive ? (
+      <motion.div
+        layoutId="mobile-nav-dot"
+        className="w-1 h-1 rounded-full bg-white"
+      />
+    ) : (
+      <div className="w-1 h-1" />
+    )}
+  </>
+)}
                 {!isActive && <div className="w-1 h-1" />}
               </navLink>
             );
