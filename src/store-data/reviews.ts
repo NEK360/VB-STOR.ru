@@ -12,7 +12,7 @@ export interface Review {
 export const reviews: Review[] = [
   {
     id: "1",
-    productId: "533608693",
+    productId: "532736395",
     name: "Степанова Наталья",
     rating: 5,
     date: "2026-04-02",
@@ -282,8 +282,8 @@ export const reviews: Review[] = [
   },
   {
     id: "31",
-    productId: "861900024",
-    name: "Марина",
+    productId: "227073601",
+    name: "Виктория",
     rating: 5,
     date: "2026-01-06",
     text: "Хорошие кроссовки, на вид добротные",
@@ -566,6 +566,15 @@ export const reviews: Review[] = [
     rating: 5,
     date: "2025-12-06",
     text: "все понравилось! обувь отличная, по размеру подошли замечательно! очень красивые и удобные!",
+    verified: true,
+  },
+{
+    id: "63",
+    productId: "533608694",
+    name: "Светлана",
+    rating: 5,
+    date: "2025-12-19",
+    text: "Качество, Внешний вид, Хорошо сидит, Удобно носить",
     verified: true,
   },
 ]
