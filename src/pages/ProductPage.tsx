@@ -26,7 +26,6 @@ const PROMOCODES: Record<string, number> = {
   SUN12: 15,
 };
 
-// drag distance (px) below which a pointer interaction is treated as a "click"
 const DRAG_THRESHOLD = 10;
 
 type GalleryItem = { type: "video" | "image"; src: string };
@@ -65,7 +64,9 @@ export default function ProductPage() {
 
       if (!isActive) return;
 
-      setRelated(all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4));
+      setRelated(
+        all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4)
+      );
       setLoading(false);
     }
 
@@ -79,18 +80,17 @@ export default function ProductPage() {
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
-  // gallery
   const [activePhoto, setActivePhoto] = useState(0);
   const [imgZoomed, setImgZoomed] = useState(false);
 
-  // size / color — NOT auto-selected, user must choose explicitly
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
 
   const [orderOpen, setOrderOpen] = useState(false);
-  const [openSection, setOpenSection] = useState<"about" | "details" | "delivery" | null>("about");
+  const [openSection, setOpenSection] = useState<
+    "about" | "details" | "delivery" | null
+  >("about");
 
-  // promo code
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
 
@@ -109,19 +109,26 @@ export default function ProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
+  // При открытии ProductPage скроллим наверх
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [id]);
+
   const fav = isFavorite(product?.id ?? "");
 
-  // build gallery: video first, then images
   const gallery = useMemo<GalleryItem[]>(() => {
     if (!product) return [];
     const items: GalleryItem[] = [];
     const p = product as unknown as { video?: string; videos?: string[] };
-    if (p.video && typeof p.video === "string") items.push({ type: "video", src: p.video });
+    if (p.video && typeof p.video === "string")
+      items.push({ type: "video", src: p.video });
     if (Array.isArray(p.videos)) {
       for (const v of p.videos) if (v) items.push({ type: "video", src: String(v) });
     }
     const images = Array.isArray(product.images)
-      ? product.images.filter(Boolean).map((s) => ({ type: "image" as const, src: String(s).trim() }))
+      ? product.images
+          .filter(Boolean)
+          .map((s) => ({ type: "image" as const, src: String(s).trim() }))
       : [];
     return [...items, ...images];
   }, [product]);
@@ -137,7 +144,6 @@ export default function ProductPage() {
     setActivePhoto((prev) => (prev === galleryLength - 1 ? 0 : prev + 1));
   }, [galleryLength]);
 
-  // ---- Unified pointer (mouse + touch) drag/swipe handling ----
   const dragStartX = useRef<number | null>(null);
   const dragDelta = useRef(0);
   const isDragging = useRef(false);
@@ -172,7 +178,6 @@ export default function ProductPage() {
   };
 
   const handleImageClick = () => {
-    // Only open fullscreen if this was a tap/click, not a drag/swipe
     if (!isDragging.current) {
       setImgZoomed(true);
     }
@@ -189,16 +194,16 @@ export default function ProductPage() {
     [product]
   );
 
-  // selected size object
   const selectedSizeObj = useMemo(() => {
     if (!product || !selectedSize) return undefined;
-    return product.sizes.find((s) => String(s.value) === String(selectedSize));
+    return product.sizes.find(
+      (s) => String(s.value) === String(selectedSize)
+    );
   }, [product, selectedSize]);
 
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
   const wbQty = Number(selectedSizeObj?.stockWB ?? 0);
 
-  // promo calculations
   const promoPercent = appliedPromo ? (PROMOCODES[appliedPromo] ?? 0) : 0;
   const basePrice = product?.price ?? 0;
   const finalPrice = useMemo(() => {
@@ -236,6 +241,14 @@ export default function ProductPage() {
     setOrderOpen(true);
   };
 
+  // Обработчик кнопки "Назад в каталог":
+  // При клике НЕ очищаем sessionStorage — пусть CatalogPage сам восстановит позицию
+  const handleBackToCatalog = () => {
+    // Позиция уже сохранена в sessionStorage при клике на карточку товара
+    // Ничего дополнительно делать не нужно — просто navigate(-1) или Link to /catalog
+    window.history.back();
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen pt-20 flex items-center justify-center">
@@ -253,7 +266,10 @@ export default function ProductPage() {
         <div className="text-center">
           <p className="text-white/20 text-6xl mb-6">404</p>
           <p className="text-white/40 text-lg mb-8">Товар не найден</p>
-          <Link to="/catalog" className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all">
+          <Link
+            to="/catalog"
+            className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all"
+          >
             Вернуться в каталог
           </Link>
         </div>
@@ -264,12 +280,24 @@ export default function ProductPage() {
   return (
     <main className="min-h-screen pt-16 pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <nav aria-label="Хлебные крошки" className="flex items-center gap-2 py-6 text-sm text-white/30">
-          <Link to="/" className="hover:text-white transition-colors">Главная</Link>
+        <nav
+          aria-label="Хлебные крошки"
+          className="flex items-center gap-2 py-6 text-sm text-white/30"
+        >
+          <Link to="/" className="hover:text-white transition-colors">
+            Главная
+          </Link>
           <span>/</span>
-          <Link to="/catalog" className="hover:text-white transition-colors">Каталог</Link>
+          <button
+            onClick={handleBackToCatalog}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
+            Каталог
+          </button>
           <span>/</span>
-          <span className="text-white/60 truncate max-w-[200px]">{product.name}</span>
+          <span className="text-white/60 truncate max-w-[200px]">
+            {product.name}
+          </span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
@@ -295,7 +323,11 @@ export default function ProductPage() {
                     className="w-full h-full"
                   >
                     {gallery[activePhoto]?.type === "video" ? (
-                      <video src={gallery[activePhoto].src} controls className="w-full h-full object-cover" />
+                      <video
+                        src={gallery[activePhoto].src}
+                        controls
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <img
                         src={gallery[activePhoto]?.src}
@@ -341,7 +373,9 @@ export default function ProductPage() {
 
               <div className="absolute top-4 left-4 flex flex-col gap-2">
                 {product.isNew && (
-                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">NEW</span>
+                  <span className="bg-white text-black text-xs font-bold px-3 py-1 rounded-lg">
+                    NEW
+                  </span>
                 )}
               </div>
             </div>
@@ -355,15 +389,24 @@ export default function ProductPage() {
                     type="button"
                     onClick={() => setActivePhoto(i)}
                     className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                      i === activePhoto ? "border-white ring-2 ring-white/50" : "border-white/10 hover:border-white/30"
+                      i === activePhoto
+                        ? "border-white ring-2 ring-white/50"
+                        : "border-white/10 hover:border-white/30"
                     }`}
                     aria-label={`Фото ${i + 1}`}
                     aria-pressed={i === activePhoto}
                   >
                     {item.type === "video" ? (
-                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">▶</div>
+                      <div className="w-full h-full flex items-center justify-center bg-black/20 text-white">
+                        ▶
+                      </div>
                     ) : (
-                      <img src={item.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={item.src}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     )}
                   </button>
                 ))}
@@ -379,7 +422,9 @@ export default function ProductPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="text-white/30 text-xs uppercase tracking-widest">{product.category}</span>
+                <span className="text-white/30 text-xs uppercase tracking-widest">
+                  {product.category}
+                </span>
                 {product.gender && (
                   <>
                     <span className="text-white/15">·</span>
@@ -390,7 +435,10 @@ export default function ProductPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    navigator.share?.({ title: product.name, url: window.location.href }).catch(() =>
+                    navigator.share?.({
+                      title: product.name,
+                      url: window.location.href,
+                    }).catch(() =>
                       navigator.clipboard.writeText(window.location.href)
                     );
                   }}
@@ -402,9 +450,13 @@ export default function ProductPage() {
                 <button
                   onClick={() => toggle(product.id)}
                   className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
-                    fav ? "bg-white border-white text-black" : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
+                    fav
+                      ? "bg-white border-white text-black"
+                      : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
                   }`}
-                  aria-label={fav ? "Убрать из избранного" : "Добавить в избранное"}
+                  aria-label={
+                    fav ? "Убрать из избранного" : "Добавить в избранное"
+                  }
                   aria-pressed={fav}
                 >
                   <Heart size={15} fill={fav ? "currentColor" : "none"} />
@@ -412,7 +464,9 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">{product.name}</h1>
+            <h1 className="text-white font-black text-2xl md:text-3xl tracking-tight leading-tight mb-4">
+              {product.name}
+            </h1>
 
             <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center gap-1">
@@ -420,11 +474,18 @@ export default function ProductPage() {
                   <Star
                     key={s}
                     size={14}
-                    className={product.reviewsCount > 0 && s <= Math.round(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-white/15"}
+                    className={
+                      product.reviewsCount > 0 &&
+                      s <= Math.round(product.rating)
+                        ? "text-yellow-400 fill-yellow-400"
+                        : "text-white/15"
+                    }
                   />
                 ))}
               </div>
-              <span className="text-white font-bold text-sm">{product.reviewsCount > 0 ? product.rating : "Нет отзывов"}</span>
+              <span className="text-white font-bold text-sm">
+                {product.reviewsCount > 0 ? product.rating : "Нет отзывов"}
+              </span>
               {product.reviewsCount > 0 ? (
                 <Link
                   to={`/reviews?product=${encodeURIComponent(product.id)}`}
@@ -438,7 +499,9 @@ export default function ProductPage() {
             </div>
 
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">{formatPrice(product.price)} </span>
+              <span className="text-white font-black text-4xl">
+                {formatPrice(product.price)}{" "}
+              </span>
             </div>
 
             {/* Промокод */}
@@ -460,11 +523,16 @@ export default function ProductPage() {
                 </button>
               </div>
 
-              {promoInvalid && <div className="text-rose-400 text-sm mt-2">Промокод не найден</div>}
+              {promoInvalid && (
+                <div className="text-rose-400 text-sm mt-2">
+                  Промокод не найден
+                </div>
+              )}
 
               {appliedPromo && (
                 <div className="text-white/40 text-sm mt-2">
-                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена: {formatPrice(finalPrice)}
+                  Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена:{" "}
+                  {formatPrice(finalPrice)}
                 </div>
               )}
             </div>
@@ -472,7 +540,8 @@ export default function ProductPage() {
             {product.colors?.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-                  Цвет: <span className="text-white">{selectedColor}</span>
+                  Цвет:{" "}
+                  <span className="text-white">{selectedColor}</span>
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
@@ -480,7 +549,9 @@ export default function ProductPage() {
                       key={color.name}
                       onClick={() => setSelectedColor(color.name)}
                       className={`group relative w-8 h-8 rounded-full border-2 transition-all ${
-                        selectedColor === color.name ? "border-white scale-110" : "border-white/20 hover:border-white/50"
+                        selectedColor === color.name
+                          ? "border-white scale-110"
+                          : "border-white/20 hover:border-white/50"
                       }`}
                       style={{ backgroundColor: color.code ?? "#ffffff" }}
                       aria-label={color.name}
@@ -488,7 +559,14 @@ export default function ProductPage() {
                     >
                       {selectedColor === color.name && (
                         <span className="absolute inset-0 flex items-center justify-center">
-                          <Check size={12} className={(color.code ?? "#ffffff") === "#ffffff" ? "text-black" : "text-white"} />
+                          <Check
+                            size={12}
+                            className={
+                              (color.code ?? "#ffffff") === "#ffffff"
+                                ? "text-black"
+                                : "text-white"
+                            }
+                          />
                         </span>
                       )}
                     </button>
@@ -500,12 +578,16 @@ export default function ProductPage() {
             {/* Размеры */}
             {product.sizes.length > 0 && (
               <div className="mb-8">
-                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Размер</p>
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
+                  Размер
+                </p>
 
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((size) => {
                     const isUnavailable = size.status === "unavailable";
-                    const isSelected = !isUnavailable && String(selectedSize) === String(size.value);
+                    const isSelected =
+                      !isUnavailable &&
+                      String(selectedSize) === String(size.value);
 
                     return (
                       <button
@@ -514,7 +596,9 @@ export default function ProductPage() {
                         disabled={isUnavailable}
                         onClick={() => {
                           if (isUnavailable) return;
-                          setSelectedSize((prev) => (prev === size.value ? prev : size.value));
+                          setSelectedSize((prev) =>
+                            prev === size.value ? prev : size.value
+                          );
                         }}
                         aria-pressed={isSelected}
                         aria-disabled={isUnavailable}
@@ -540,7 +624,9 @@ export default function ProductPage() {
             <div className="glass rounded-2xl p-4 mb-6 border border-white/8">
               {!selectedSize && (
                 <div>
-                  <p className="text-white text-sm font-medium">Выберите размер, чтобы увидеть наличие</p>
+                  <p className="text-white text-sm font-medium">
+                    Выберите размер, чтобы увидеть наличие
+                  </p>
                 </div>
               )}
 
@@ -548,9 +634,15 @@ export default function ProductPage() {
                 <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/8 last:mb-0 last:pb-0 last:border-b-0">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">✔ Есть в наличии в магазине</p>
-                    <p className="text-white/40 text-xs mt-1">г. Изобильный, Ставропольский край, ул. Кирова, 2Г</p>
-                    <p className="text-white/30 text-xs">Способы покупки: заявка, WhatsApp, Telegram, MAX</p>
+                    <p className="text-white text-sm font-medium">
+                      ✔ Есть в наличии в магазине
+                    </p>
+                    <p className="text-white/40 text-xs mt-1">
+                      г. Изобильный, Ставропольский край, ул. Кирова, 2Г
+                    </p>
+                    <p className="text-white/30 text-xs">
+                      Способы покупки: заявка, WhatsApp, Telegram, MAX
+                    </p>
                   </div>
                 </div>
               )}
@@ -559,15 +651,21 @@ export default function ProductPage() {
                 <div className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   <div>
-                    <p className="text-white text-sm font-medium">✔ Есть на Wildberries</p>
-                    <p className="text-white/40 text-xs mt-1">Доставка со склада WB</p>
+                    <p className="text-white text-sm font-medium">
+                      ✔ Есть на Wildberries
+                    </p>
+                    <p className="text-white/40 text-xs mt-1">
+                      Доставка со склада WB
+                    </p>
                   </div>
                 </div>
               )}
 
               {selectedSize && shopQty === 0 && wbQty === 0 && (
                 <div>
-                  <p className="text-white text-sm font-medium">❌ Нет в наличии</p>
+                  <p className="text-white text-sm font-medium">
+                    ❌ Нет в наличии
+                  </p>
                 </div>
               )}
             </div>
@@ -577,15 +675,25 @@ export default function ProductPage() {
               <button
                 onClick={handleOrderClick}
                 className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  !selectedSize ? "bg-white/50 text-black/50 cursor-not-allowed" : "bg-white text-black hover:bg-white/90"
+                  !selectedSize
+                    ? "bg-white/50 text-black/50 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-white/90"
                 }`}
               >
-                {selectedSize ? (shopQty === 0 && wbQty > 0 ? "Купить на WB" : "Оставить заявку") : "Выберите размер"}
+                {selectedSize
+                  ? shopQty === 0 && wbQty > 0
+                    ? "Купить на WB"
+                    : "Оставить заявку"
+                  : "Выберите размер"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href={selectedSize ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  href={
+                    selectedSize
+                      ? `${contacts.whatsappUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
+                      : "#"
+                  }
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
                   onClick={(e) => {
@@ -605,7 +713,11 @@ export default function ProductPage() {
                   WhatsApp
                 </a>
                 <a
-                  href={selectedSize ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}` : "#"}
+                  href={
+                    selectedSize
+                      ? `${contacts.telegramUrl}?text=Хочу заказать: ${product.name}, размер ${selectedSize}`
+                      : "#"
+                  }
                   target={selectedSize ? "_blank" : undefined}
                   rel={selectedSize ? "noopener noreferrer" : undefined}
                   onClick={(e) => {
@@ -651,16 +763,35 @@ export default function ProductPage() {
             <div className="mt-8 space-y-3 border-t border-white/8 pt-6">
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "about" ? null : "about"))}
+                  onClick={() =>
+                    setOpenSection((value) =>
+                      value === "about" ? null : "about"
+                    )
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">О товаре</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "about" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    О товаре
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      openSection === "about" ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "about" && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">{product.description || "Подробное описание будет добавлено позже."}</p>
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
+                        {product.description ||
+                          "Подробное описание будет добавлено позже."}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -668,18 +799,37 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "details" ? null : "details"))}
+                  onClick={() =>
+                    setOpenSection((value) =>
+                      value === "details" ? null : "details"
+                    )
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Характеристики</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "details" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Характеристики
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      openSection === "details" ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "details" && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
                       <div className="px-4 pb-4 space-y-2 text-sm text-white/60">
                         {details.map((item) => (
-                          <div key={item.label} className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0">
+                          <div
+                            key={item.label}
+                            className="flex items-center justify-between gap-4 border-b border-white/8 py-2 last:border-b-0"
+                          >
                             <span>{item.label}</span>
                             <span className="text-white/80">{item.value}</span>
                           </div>
@@ -692,17 +842,36 @@ export default function ProductPage() {
 
               <div className="rounded-2xl border border-white/8 bg-white/4">
                 <button
-                  onClick={() => setOpenSection((value) => (value === "delivery" ? null : "delivery"))}
+                  onClick={() =>
+                    setOpenSection((value) =>
+                      value === "delivery" ? null : "delivery"
+                    )
+                  }
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Доставка и оплата</span>
-                  <ChevronDown size={16} className={`transition-transform ${openSection === "delivery" ? "rotate-180" : ""}`} />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Доставка и оплата
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      openSection === "delivery" ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
                 <AnimatePresence initial={false}>
                   {openSection === "delivery" && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по адресу г. Изобильный, ул. Кирова, 2Г. Для заказа обратитесь через WhatsApp, Telegram, MAX или форму заявки.
+                        Возможна доставка по запросу, а также самовывоз по
+                        адресу г. Изобильный, ул. Кирова, 2Г. Для заказа
+                        обратитесь через WhatsApp, Telegram, MAX или форму
+                        заявки.
                       </p>
                     </motion.div>
                   )}
@@ -714,7 +883,10 @@ export default function ProductPage() {
 
         {related.length > 0 && (
           <section className="mt-20" aria-labelledby="related-title">
-            <h2 id="related-title" className="text-white font-black text-3xl tracking-tight mb-8">
+            <h2
+              id="related-title"
+              className="text-white font-black text-3xl tracking-tight mb-8"
+            >
               Похожие товары
             </h2>
 
@@ -752,7 +924,12 @@ export default function ProductPage() {
             onPointerUp={handlePointerUp}
           >
             {gallery[activePhoto]?.type === "video" ? (
-              <video src={gallery[activePhoto].src} controls className="max-w-full max-h-full object-contain rounded-2xl" onClick={(e) => e.stopPropagation()} />
+              <video
+                src={gallery[activePhoto].src}
+                controls
+                className="max-w-full max-h-full object-contain rounded-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
             ) : (
               <motion.img
                 src={gallery[activePhoto]?.src}
