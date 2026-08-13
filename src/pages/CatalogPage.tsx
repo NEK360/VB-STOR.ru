@@ -469,20 +469,6 @@ export default function CatalogPage() {
                   : "bg-white/6 text-white/50 hover:text-white"
               }`}
             >
-              Все товары
-            </button>
-            <button
-              onClick={() => setFilter("sale")}
-              className={`text-sm px-4 py-2 rounded-xl transition-all ${
-                filterParam === "sale"
-                  ? "bg-white text-black"
-                  : "bg-white/6 text-white/50 hover:text-white"
-              }`}
-            >
-              Распродажа
-            </button>
-          </div>
-
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 shrink-0">
@@ -496,16 +482,10 @@ export default function CatalogPage() {
                 По умолчанию
               </option>
               <option value="price-asc" className="bg-black text-white">
-                Цена ↑
+                По возрастанию цены
               </option>
               <option value="price-desc" className="bg-black text-white">
-                Цена ↓
-              </option>
-              <option value="rating" className="bg-black text-white">
-                По рейтингу
-              </option>
-              <option value="new" className="bg-black text-white">
-                Новинки
+                По убыванию цены
               </option>
             </select>
 
