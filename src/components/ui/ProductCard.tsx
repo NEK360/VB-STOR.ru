@@ -16,7 +16,6 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const image = product.images?.[0];
 
   const handleFavoriteClick = (event: React.MouseEvent) => {
-    // Each card must toggle only its own product id — never a shared/stale id.
     event.preventDefault();
     event.stopPropagation();
     toggle(product.id);
@@ -77,7 +76,9 @@ export default function ProductCard({ product, index = 0 }: Props) {
           <div className="flex items-center gap-1 mb-2">
             <Star size={12} className={product.reviewsCount > 0 ? "text-yellow-400 fill-yellow-400" : "text-white/15"} />
             <span className="text-white/50 text-xs">
-              {product.reviewsCount > 0 ? `${product.rating} · ${product.reviewsCount} ${reviewsWord(product.reviewsCount)}` : "Нет отзывов"}
+              {product.reviewsCount > 0
+                ? `${product.rating} · ${product.reviewsCount} ${reviewsWord(product.reviewsCount)}`
+                : "Нет отзывов"}
             </span>
           </div>
 
