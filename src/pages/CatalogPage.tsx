@@ -460,51 +460,73 @@ export default function CatalogPage() {
         </motion.div>
 
         <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setFilter("all")}
+              className={`text-sm px-4 py-2 rounded-xl transition-all ${
+                filterParam === "all"
+                  ? "bg-white text-black"
+                  : "bg-white/6 text-white/50 hover:text-white"
+              }`}
+            >
+            </button>
+            <button
+              onClick={() => setFilter("sale")}
+              className={`text-sm px-4 py-2 rounded-xl transition-all ${
+                filterParam === "sale"
+                  ? "bg-white text-black"
+                  : "bg-white/6 text-white/50 hover:text-white"
+              }`}
+            >
+            </button>
+          </div>
 
-  <select
-    value={sort}
-    onChange={(e) => setSort(e.target.value as SortOption)}
-    className="bg-white/6 text-white text-sm px-4 py-2 rounded-xl border border-white/10 outline-none"
-  >
-    <option value="default" className="bg-black">
-      По умолчанию
-    </option>
+          <div className="flex-1" />
 
-    <option value="price-asc" className="bg-black">
-      По возрастанию цены
-    </option>
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="bg-black text-white border border-white/10 rounded-xl px-4 py-2 outline-none appearance-none"
+              aria-label="Сортировка"
+            >
+              <option value="default" className="bg-black text-white">
+                По умолчанию
+              </option>
+              <option value="price-asc" className="bg-black text-white">
+                По возрастанию цены
+              </option>
+              <option value="price-desc" className="bg-black text-white">
+                По убыванию цены
+              </option>
+            </select>
 
-    <option value="price-desc" className="bg-black">
-      По убыванию цены
-    </option>
-  </select>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${
+                showFilters
+                  ? "bg-white text-black"
+                  : "bg-white/6 text-white/50 hover:text-white"
+              }`}
+              aria-expanded={showFilters}
+              aria-label="Фильтры"
+            >
+              <Filter size={15} />
+              Фильтры
+              {selectedCategories.length +
+                selectedBrands.length +
+                selectedSizes.length >
+                0 && (
+                <span className="ml-1 bg-black/20 text-current text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {selectedCategories.length +
+                    selectedBrands.length +
+                    selectedSizes.length}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
 
-  <button
-    onClick={() => setShowFilters(!showFilters)}
-    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${
-      showFilters
-        ? "bg-white text-black"
-        : "bg-white/6 text-white/50 hover:text-white"
-    }`}
-  >
-    <Filter size={15} />
-
-    Фильтры
-
-    {selectedCategories.length +
-      selectedBrands.length +
-      selectedSizes.length >
-      0 && (
-      <span className="ml-1 bg-black/20 text-current text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-        {selectedCategories.length +
-          selectedBrands.length +
-          selectedSizes.length}
-      </span>
-    )}
-  </button>
-
-</div>
-  
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -738,8 +760,7 @@ export default function CatalogPage() {
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
-       )}
-        </div>
+        )}
       </div>
     </main>
   );
