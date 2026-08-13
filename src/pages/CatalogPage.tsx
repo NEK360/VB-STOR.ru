@@ -471,19 +471,11 @@ export default function CatalogPage() {
     </option>
 
     <option value="price-asc" className="bg-black">
-      Цена ↑
+      По возрастанию цены
     </option>
 
     <option value="price-desc" className="bg-black">
-      Цена ↓
-    </option>
-
-    <option value="rating" className="bg-black">
-      Рейтинг
-    </option>
-
-    <option value="new" className="bg-black">
-      Новинки
+      По убыванию цены
     </option>
   </select>
 
@@ -746,7 +738,9 @@ export default function CatalogPage() {
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
-        )}
+       )}
+        </div>
       </div>
+    </main>
   );
 }
