@@ -513,7 +513,6 @@ export default function CatalogPage() {
               )}
             </button>
           </div>
-        </div>
 
         <AnimatePresence>
           {showFilters && (
@@ -750,6 +749,4 @@ export default function CatalogPage() {
           </div>
         )}
       </div>
-    </main>
   );
-}
