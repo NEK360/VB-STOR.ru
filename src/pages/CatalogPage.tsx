@@ -468,15 +468,7 @@ export default function CatalogPage() {
                   ? "bg-white text-black"
                   : "bg-white/6 text-white/50 hover:text-white"
               }`}
-            >
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-2 shrink-0">
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              className="bg-black text-white border border-white/10 rounded-xl px-4 py-2 outline-none appearance-none"
-              aria-label="Сортировка"
+          
             >
               <option value="default" className="bg-black text-white">
                 По умолчанию
