@@ -469,19 +469,6 @@ export default function CatalogPage() {
                   : "bg-white/6 text-white/50 hover:text-white"
               }`}
             >
-            </button>
-            <button
-              onClick={() => setFilter("sale")}
-              className={`text-sm px-4 py-2 rounded-xl transition-all ${
-                filterParam === "sale"
-                  ? "bg-white text-black"
-                  : "bg-white/6 text-white/50 hover:text-white"
-              }`}
-            >
-            </button>
-          </div>
-
-          <div className="flex-1" />
 
           <div className="flex items-center gap-2 shrink-0">
             <select
