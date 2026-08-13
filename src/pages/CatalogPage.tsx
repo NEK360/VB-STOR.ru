@@ -713,20 +713,6 @@ export default function CatalogPage() {
               >
                 По убыванию цены
               </option>
-
-              <option
-                value="rating"
-                className="bg-black text-white"
-              >
-                По рейтингу
-              </option>
-
-              <option
-                value="new"
-                className="bg-black text-white"
-              >
-                По новинкам
-              </option>
             </select>
 
             {/* ФИЛЬТРЫ */}
