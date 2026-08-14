@@ -23,34 +23,7 @@ const CATEGORY_TILES: {
   { label: "Товары", category: "Товары", catalogParam: "category=Товары" },
 ];
 
-function getTopByGender(products: Product[], gender: string, count: number): Product[] {
-  const normalize = (s: string) => s.trim().toLowerCase();
-  return [...products]
-    .filter((p) => normalize(p.gender) === normalize(gender))
-    .sort((a, b) => b.price - a.price)
-    .slice(0, count);
-}
 
-function getTileImage(
-  products: Product[],
-  tile: { gender?: string; category?: string }
-): string {
-  const normalize = (s: string) => s.trim().toLowerCase();
-  let sorted: Product[] = [];
-
-  if (tile.gender) {
-    sorted = [...products]
-      .filter((p) => normalize(p.gender) === normalize(tile.gender!))
-      .sort((a, b) => b.price - a.price);
-  } else if (tile.category) {
-    sorted = [...products]
-      .filter((p) => normalize(p.category) === normalize(tile.category!))
-      .sort((a, b) => b.price - a.price);
-  }
-
-  const first = sorted.find((p) => p.images && p.images.length > 0);
-  return first?.images?.[0] ?? "";
-}
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [genderTabIndex, setGenderTabIndex] = useState(0);
