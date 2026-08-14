@@ -23,10 +23,8 @@ const CATEGORY_TILES: {
   { label: "Товары", category: "Товары", catalogParam: "category=Товары" },
 ];
 
-
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -47,7 +45,7 @@ export default function HomePage() {
   useEffect(() => {
     document.title = seo.home.title;
   }, []);
-  
+
   return (
     <main>
       {/* Hero */}
@@ -101,7 +99,7 @@ export default function HomePage() {
     Смотреть ещё
   </Link>
 </div>
-           {/* Категории — Wildberries-стиль */}
+          {/* Категории — Wildberries-стиль */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
