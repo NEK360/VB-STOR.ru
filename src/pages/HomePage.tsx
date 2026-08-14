@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import Hero from "../components/sections/Hero";
@@ -9,6 +9,15 @@ import ContactsSection from "../components/sections/ContactsSection";
 import ProductCard from "../components/ui/ProductCard";
 import { loadProducts, type Product } from "../lib/api";
 import { seo } from "../store-data/seo";
+
+// Категории подборок: пол → отображаемое название
+const GENDER_TABS: { gender: string; label: string }[] = [
+  { gender: "Мужской", label: "Мужчинам" },
+  { gender: "Женский", label: "Женщинам" },
+  { gender: "Мальчики", label: "Мальчикам" },
+  { gender: "Девочки", label: "Девочкам" },
+];
+
 // Категории блока миниатюр (Wildberries-стиль)
 const CATEGORY_TILES: {
   label: string;
@@ -22,6 +31,7 @@ const CATEGORY_TILES: {
   { label: "Для мальчиков", gender: "Мальчики", catalogParam: "gender=Мальчики" },
   { label: "Товары", category: "Товары", catalogParam: "category=Товары" },
 ];
+
 function getTopByGender(products: Product[], gender: string, count: number): Product[] {
   const normalize = (s: string) => s.trim().toLowerCase();
   return [...products]
@@ -50,8 +60,10 @@ function getTileImage(
   const first = sorted.find((p) => p.images && p.images.length > 0);
   return first?.images?.[0] ?? "";
 }
+
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -72,7 +84,8 @@ export default function HomePage() {
   useEffect(() => {
     document.title = seo.home.title;
   }, []);
-// Фильтруем вкладки, у которых есть хоть 1 товар
+
+  // Фильтруем вкладки, у которых есть хоть 1 товар
   const validTabs = useMemo(() => {
     if (allProducts.length === 0) return GENDER_TABS;
     return GENDER_TABS.filter((tab) => {
@@ -110,14 +123,94 @@ export default function HomePage() {
   const tileImages = useMemo(() => {
     return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
   }, [allProducts]);
+
   return (
     <main>
       {/* Hero */}
       <Hero />
 
-      {/* Catalog */}
+      {/* Подборка товаров по полу */}
       {allProducts.length > 0 && (
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6" aria-labelledby="catalog-title">
+        <section
+          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          aria-labelledby="featured-title"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="flex items-end justify-between mb-8"
+          >
+            <div>
+              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
+                Подборка
+              </p>
+              <h2
+                id="featured-title"
+                className="text-white font-black text-4xl md:text-5xl tracking-tight"
+              >
+                Лучшее
+              </h2>
+            </div>
+            <Link
+              to="/catalog"
+              className="hidden sm:flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors group"
+            >
+              Весь каталог
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
+
+          {/* Табы категорий */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            {validTabs.map((tab, i) => (
+              <button
+                key={tab.gender}
+                type="button"
+                onClick={() => setGenderTabIndex(i)}
+                className={`text-sm px-4 py-2 rounded-xl transition-all font-medium ${
+                  genderTabIndex === i
+                    ? "bg-white text-black"
+                    : "bg-white/6 text-white/50 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Товары с анимацией при смене вкладки */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab?.gender ?? "empty"}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.35 }}
+            >
+              {featuredProducts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                  {featuredProducts.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-white/20 text-lg">Нет товаров в этой категории</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      )}
+
+      {/* Каталог — все товары (первые 8) */}
+      {allProducts.length > 0 && (
+        <section
+          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          aria-labelledby="catalog-title"
+        >
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -126,8 +219,13 @@ export default function HomePage() {
             className="flex items-end justify-between mb-12"
           >
             <div>
-              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">Весь каталог</p>
-              <h2 id="catalog-title" className="text-white font-black text-4xl md:text-5xl tracking-tight">
+              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
+                Весь каталог
+              </p>
+              <h2
+                id="catalog-title"
+                className="text-white font-black text-4xl md:text-5xl tracking-tight"
+              >
                 Товары
               </h2>
             </div>
@@ -136,33 +234,39 @@ export default function HomePage() {
               className="hidden sm:flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors group"
             >
               Перейти в каталог
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              <ArrowRight
+                size={16}
+                className="group-hover:translate-x-1 transition-transform"
+              />
             </Link>
           </motion.div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {allProducts.slice(0, 8).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
+
           <div className="flex justify-center mt-10 mb-20">
-  <Link
-    to="/catalog"
-    className="
-      inline-flex items-center justify-center
-      px-8 py-4
-      rounded-2xl
-      bg-white text-black
-      font-bold text-sm
-      uppercase tracking-wider
-      transition-all
-      hover:bg-white/90
-      hover:scale-[1.03]
-      active:scale-[0.98]
-    "
-  >
-    Смотреть ещё
-  </Link>
-</div>
+            <Link
+              to="/catalog"
+              className="
+                inline-flex items-center justify-center
+                px-8 py-4
+                rounded-2xl
+                bg-white text-black
+                font-bold text-sm
+                uppercase tracking-wider
+                transition-all
+                hover:bg-white/90
+                hover:scale-[1.03]
+                active:scale-[0.98]
+              "
+            >
+              Смотреть ещё
+            </Link>
+          </div>
+
           {/* Категории — Wildberries-стиль */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
