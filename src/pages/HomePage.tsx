@@ -74,7 +74,17 @@ export default function HomePage() {
   useEffect(() => {
     document.title = seo.home.title;
   }, []);
+// При изменении validTabs убедимся, что индекс не выходит за пределы
+  useEffect(() => {
+    if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
+      setGenderTabIndex(0);
+    }
+  }, [validTabs.length, genderTabIndex]);
 
+      // Изображения для плиток категорий
+  const tileImages = useMemo(() => {
+    return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
+  }, [allProducts]);
   return (
     <main>
       {/* Hero */}
@@ -130,17 +140,7 @@ export default function HomePage() {
 </div>
         </section>
       )}
-// При изменении validTabs убедимся, что индекс не выходит за пределы
-  useEffect(() => {
-    if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
-      setGenderTabIndex(0);
-    }
-  }, [validTabs.length, genderTabIndex]);
 
-      // Изображения для плиток категорий
-  const tileImages = useMemo(() => {
-    return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
-  }, [allProducts]);
 
       {/* Табы категорий */}
           <div className="flex flex-wrap gap-2 mb-8">
