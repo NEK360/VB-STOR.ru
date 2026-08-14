@@ -501,12 +501,6 @@ export default function CatalogPage() {
               <option value="price-desc" className="bg-black text-white">
                 По убыванию цены
               </option>
-              <option value="rating" className="bg-black text-white">
-                По рейтингу
-              </option>
-              <option value="new" className="bg-black text-white">
-                Новинки
-              </option>
             </select>
 
             {/* ФИЛЬТРЫ */}
