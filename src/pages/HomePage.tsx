@@ -53,6 +53,7 @@ function getTileImage(
 }
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -73,7 +74,7 @@ export default function HomePage() {
   useEffect(() => {
     document.title = seo.home.title;
   }, []);
-
+  
   return (
     <main>
       {/* Hero */}
