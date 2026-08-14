@@ -926,36 +926,23 @@ export default function CatalogPage() {
                 <div className="space-y-4">
 
                   {/* ПОЛ */}
-                  <div>
+              <div>
                     <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">
                       Пол
                     </label>
-
                     <div className="flex flex-wrap gap-2">
-                      {[
-                        "all",
-                        "Мужской",
-                        "Женский",
-                        "Унисекс",
-                      ].map((gender) => (
+                      {GENDER_OPTIONS.map((opt) => (
                         <button
-                          key={gender}
+                          key={opt.value}
                           type="button"
-                          onClick={() =>
-                            setSelectedGender(
-                              gender
-                            )
-                          }
+                          onClick={() => setSelectedGender(opt.value)}
                           className={`text-sm px-3 py-1.5 rounded-lg transition-all ${
-                            selectedGender ===
-                            gender
+                            selectedGender === opt.value
                               ? "bg-white text-black"
                               : "bg-white/6 text-white/50 hover:text-white"
                           }`}
                         >
-                          {gender === "all"
-                            ? "Все"
-                            : gender}
+                          {opt.label}
                         </button>
                       ))}
                     </div>
@@ -978,72 +965,67 @@ export default function CatalogPage() {
                   </label>
 
                   {/* ЦЕНА */}
-                  <div>
+                   <div>
                     <label className="text-white/40 text-xs uppercase tracking-wider mb-3 block">
                       Цена:{" "}
-                      {priceRange[0].toLocaleString(
-                        "ru-RU"
-                      )}{" "}
-                      ₽ —{" "}
-                      {priceRange[1].toLocaleString(
-                        "ru-RU"
-                      )}{" "}
-                      ₽
+                      {priceRange[0].toLocaleString("ru-RU")} ₽ —{" "}
+                      {priceRange[1].toLocaleString("ru-RU")} ₽
                     </label>
 
-                    <div className="grid grid-cols-2 gap-3 mb-3">
+                    {/* Числовые поля */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                       <input
                         type="number"
                         min={minPrice}
-                        max={maxPrice}
+                        max={priceRange[1]}
                         value={priceRange[0]}
-                        onChange={(event) =>
-                          setPriceRange([
-                            Number(
-                              event.target.value
-                            ),
-                            priceRange[1],
-                          ])
-                        }
+                        onChange={(e) => handlePriceMinChange(Number(e.target.value))}
                         className="bg-white/6 border border-white/10 text-white text-sm px-3 py-2 rounded-lg outline-none"
                         aria-label="Минимальная цена"
                       />
-
                       <input
                         type="number"
-                        min={minPrice}
+                        min={priceRange[0]}
                         max={maxPrice}
                         value={priceRange[1]}
-                        onChange={(event) =>
-                          setPriceRange([
-                            priceRange[0],
-                            Number(
-                              event.target.value
-                            ),
-                          ])
-                        }
+                        onChange={(e) => handlePriceMaxChange(Number(e.target.value))}
                         className="bg-white/6 border border-white/10 text-white text-sm px-3 py-2 rounded-lg outline-none"
                         aria-label="Максимальная цена"
                       />
                     </div>
 
-                    <input
-                      type="range"
-                      min={minPrice}
-                      max={maxPrice}
-                      value={priceRange[1]}
-                      onChange={(event) =>
-                        setPriceRange([
-                          priceRange[0],
-                          Number(
-                            event.target.value
-                          ),
-                        ])
-                      }
-                      className="w-full accent-white"
-                      aria-label="Максимальная цена"
-                    />
+                    {/* Ползунок минимума */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/30 text-[11px] w-6">от</span>
+                        <input
+                          type="range"
+                          min={minPrice}
+                          max={maxPrice}
+                          step={1}
+                          value={priceRange[0]}
+                          onChange={handleMinRangeInput}
+                          className="flex-1 accent-white"
+                          aria-label="Минимальная цена (ползунок)"
+                        />
+                      </div>
+                      {/* Ползунок максимума */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/30 text-[11px] w-6">до</span>
+                        <input
+                          type="range"
+                          min={minPrice}
+                          max={maxPrice}
+                          step={1}
+                          value={priceRange[1]}
+                          onChange={handleMaxRangeInput}
+                          className="flex-1 accent-white"
+                          aria-label="Максимальная цена (ползунок)"
+                        />
+                      </div>
+                    </div>
                   </div>
+
 
                   {/* СБРОС */}
                   <button
