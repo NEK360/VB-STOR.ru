@@ -53,6 +53,7 @@ function getTileImage(
 }
 export default function HomePage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -129,7 +130,86 @@ export default function HomePage() {
 </div>
         </section>
       )}
+// При изменении validTabs убедимся, что индекс не выходит за пределы
+  useEffect(() => {
+    if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
+      setGenderTabIndex(0);
+    }
+  }, [validTabs.length, genderTabIndex]);
 
+      // Изображения для плиток категорий
+  const tileImages = useMemo(() => {
+    return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
+  }, [allProducts]);
+
+      {/* Табы категорий */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            {validTabs.map((tab, i) => (
+              <button
+                key={tab.gender}
+                type="button"
+                onClick={() => setGenderTabIndex(i)}
+                className={`text-sm px-4 py-2 rounded-xl transition-all font-medium ${
+                  genderTabIndex === i
+                    ? "bg-white text-black"
+                    : "bg-white/6 text-white/50 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+       {/* Категории — Wildberries-стиль */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mt-4"
+          >
+            <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-6">
+              Категории
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {CATEGORY_TILES.map((tile, i) => {
+                const img = tileImages[i];
+                return (
+                  <motion.div
+                    key={tile.label}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.35, delay: i * 0.07 }}
+                  >
+                    <Link
+                      to={`/catalog?${tile.catalogParam}`}
+                      className="group flex flex-col items-center gap-3"
+                    >
+                      <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/8 group-hover:border-white/25 transition-all">
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={tile.label}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/10 text-4xl">
+                            👕
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-white/70 text-sm font-medium text-center group-hover:text-white transition-colors">
+                        {tile.label}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </section>
+      )}
       {/* Advantages */}
       <Advantages />
 
