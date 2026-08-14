@@ -786,5 +786,3 @@ export default function CatalogPage() {
     </main>
   );
 }
-
-}
