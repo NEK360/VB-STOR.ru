@@ -285,7 +285,7 @@ className="bg-zinc-900"
       className="text-white/50 text-xs mb-1.5 block"
       htmlFor="order-phone"
     >
-      Телефон *
+      Телефон (привязанный к Telegram/WhatsApp/MAX)*
     </label>
 
     <input
