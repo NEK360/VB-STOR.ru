@@ -72,7 +72,44 @@ export default function HomePage() {
   useEffect(() => {
     document.title = seo.home.title;
   }, []);
+// Фильтруем вкладки, у которых есть хоть 1 товар
+  const validTabs = useMemo(() => {
+    if (allProducts.length === 0) return GENDER_TABS;
+    return GENDER_TABS.filter((tab) => {
+      const normalize = (s: string) => s.trim().toLowerCase();
+      return allProducts.some((p) => normalize(p.gender) === normalize(tab.gender));
+    });
+  }, [allProducts]);
 
+  // Автоматическое переключение вкладок каждые 5 секунд
+  useEffect(() => {
+    if (validTabs.length < 2) return;
+
+    const interval = setInterval(() => {
+      setGenderTabIndex((prev) => (prev + 1) % validTabs.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [validTabs.length]);
+
+  // При изменении validTabs убедимся, что индекс не выходит за пределы
+  useEffect(() => {
+    if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
+      setGenderTabIndex(0);
+    }
+  }, [validTabs.length, genderTabIndex]);
+
+  // 3 самых дорогих товара текущей вкладки
+  const currentTab = validTabs[genderTabIndex] ?? validTabs[0];
+  const featuredProducts = useMemo(() => {
+    if (!currentTab || allProducts.length === 0) return [];
+    return getTopByGender(allProducts, currentTab.gender, 3);
+  }, [allProducts, currentTab]);
+
+  // Изображения для плиток категорий
+  const tileImages = useMemo(() => {
+    return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
+  }, [allProducts]);
   return (
     <main>
       {/* Hero */}
