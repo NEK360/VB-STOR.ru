@@ -22,8 +22,8 @@ import OrderModal from "../components/ui/OrderModal";
 import ProductCard from "../components/ui/ProductCard";
 
 const PROMOCODES: Record<string, number> = {
-  SKFU: 10,
-  SUN12: 15,
+  SKFU: 5,
+  VB5: 5,
 };
 
 const DRAG_THRESHOLD = 10;
