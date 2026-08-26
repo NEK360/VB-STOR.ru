@@ -6,7 +6,7 @@ export const settings = {
   phone: "+7 918 797-02-30",
   phoneClean: "79187970230",
   email: "vbshop456@gmail.com",
-  telegram: "@VB_STORE_IZOB",
+  telegram: "Telegram",
   telegramUrl: "https://t.me/VB_STORE_IZOB",
   whatsapp: "+7 918 797-02-30",
   whatsappUrl: "https://wa.me/79187970230",
