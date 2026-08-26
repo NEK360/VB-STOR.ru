@@ -8,6 +8,8 @@ export const contacts = {
   whatsappUrl: "https://wa.me/79187970230",
   telegram: "Telegram",
   telegramUrl: "https://t.me/VB_STORE_IZOB",
+  vk: "vbstore",
+  vkUrl: "https://vk.com/vbstore",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
   city: "г. Изобильный",
   region: "Ставропольский край",
