@@ -2,7 +2,7 @@ export const contacts = {
   phone: "+7 918 797-02-30",
   phoneClean: "79187970230",
   email: "vbshop456@gmail.com",
-  max: "VB STORE",
+  max: "MAX",
   maxUrl: "https://max.ru/id260706786502_biz",
   vk: "VB STORE",
   vkUrl: "https://vk.ru/vb_store_ru",
