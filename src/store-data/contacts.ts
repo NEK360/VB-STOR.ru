@@ -6,7 +6,7 @@ export const contacts = {
   maxUrl: "https://max.ru/id260706786502_biz",
   whatsapp: "+7 918 797-02-30",
   whatsappUrl: "https://wa.me/79187970230",
-  telegram: "@VB_STORE_IZOB",
+  telegram: "Telegram",
   telegramUrl: "https://t.me/VB_STORE_IZOB",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
   city: "г. Изобильный",
