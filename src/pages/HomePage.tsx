@@ -100,7 +100,7 @@ export default function HomePage() {
 
     const interval = setInterval(() => {
       setGenderTabIndex((prev) => (prev + 1) % validTabs.length);
-    }, 5000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [validTabs.length]);
