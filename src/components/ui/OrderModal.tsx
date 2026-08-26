@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MessageCircle, Send, Check, Loader, Phone } from "lucide-react";
 import { type Product } from "../../lib/api";
@@ -9,22 +9,40 @@ import { sanitizeInput, validatePhone } from "../../lib/utils";
 
 interface OrderModalProps {
   product: Product | null;
-  selectedSize?: string;
+  selectedSize: string | null;
   selectedColor?: string;
   isOpen: boolean;
   onClose: () => void;
+  promocode?: string;
+  discount?: number;
+  finalPrice?: number;
 }
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function OrderModal({ product, selectedSize, selectedColor, isOpen, onClose }: OrderModalProps) {
+export default function OrderModal({
+  product,
+  selectedSize,
+  selectedColor,
+  isOpen,
+  onClose,
+  promocode,
+  discount,
+  finalPrice,
+}: OrderModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
+const [modalSize, setModalSize] = useState(selectedSize ?? "");
 
+useEffect(() => {
+  if (isOpen) {
+    setModalSize(selectedSize ?? "");
+  }
+}, [isOpen, selectedSize]);
   const validate = () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Введите ваше имя";
@@ -35,6 +53,10 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!modalSize) {
+  alert("Выберите размер");
+  return;
+}
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     if (!product) return;
@@ -43,17 +65,35 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
     setErrors({});
 
     try {
-      const success = await sendOrderEmail({
-        customerName: sanitizeInput(name),
-        customerPhone: sanitizeInput(phone),
-        customerTelegram: telegram ? sanitizeInput(telegram) : undefined,
-        productName: product.name,
-        productId: product.id,
-        size: selectedSize,
-        color: selectedColor,
-        comment: comment ? sanitizeInput(comment) : undefined,
-        timestamp: new Date().toLocaleString("ru-RU"),
-      });
+      const orderPayload = {
+  customerName: sanitizeInput(name),
+  customerPhone: sanitizeInput(phone),
+  customerTelegram: telegram ? sanitizeInput(telegram) : undefined,
+
+  productName: product.name,
+  productId: product.id,
+        
+ productUrl: window.location.href,
+
+ productImage:
+  product.images && product.images.length > 0
+    ? product.images[0]
+    : "",
+
+  size: modalSize,
+  color: selectedColor,
+
+  comment: comment ? sanitizeInput(comment) : undefined,
+
+  timestamp: new Date().toLocaleString("ru-RU"),
+
+  price: product.price,
+  promocode: promocode ?? undefined,
+  discount: discount ?? 0,
+  finalPrice: finalPrice ?? product.price,
+} as const;
+      
+      const success = await sendOrderEmail(orderPayload as any);
 
       if (success) {
         setStatus("success");
@@ -173,59 +213,134 @@ export default function OrderModal({ product, selectedSize, selectedColor, isOpe
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-name">Ваше имя *</label>
-                      <input
-                        id="order-name"
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Иван"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.name ? "border-red-500/60" : "border-white/10"}`}
-                        aria-required="true"
-                        aria-invalid={!!errors.name}
-                        aria-describedby={errors.name ? "name-error" : undefined}
-                      />
-                      {errors.name && <p id="name-error" className="text-red-400 text-xs mt-1" role="alert">{errors.name}</p>}
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-phone">Телефон *</label>
-                      <input
-                        id="order-phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+7 900 000-00-00"
-                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 ${errors.phone ? "border-red-500/60" : "border-white/10"}`}
-                        aria-required="true"
-                        aria-invalid={!!errors.phone}
-                        aria-describedby={errors.phone ? "phone-error" : undefined}
-                      />
-                      {errors.phone && <p id="phone-error" className="text-red-400 text-xs mt-1" role="alert">{errors.phone}</p>}
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-telegram">Telegram (необязательно)</label>
-                      <input
-                        id="order-telegram"
-                        type="text"
-                        value={telegram}
-                        onChange={(e) => setTelegram(e.target.value)}
-                        placeholder="@username"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-white/50 text-xs mb-1.5 block" htmlFor="order-comment">Комментарий</label>
-                      <textarea
-                        id="order-comment"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        placeholder={`Товар: ${product.name}${selectedSize ? `\nРазмер: ${selectedSize}` : ""}`}
-                        rows={3}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
-                      />
-                    </div>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+
+ <div>
+<label className="text-white/50 text-xs mb-2 block">
+Размер
+</label>
+
+<select
+value={modalSize}
+onChange={(e)=>setModalSize(e.target.value)}
+className="w-full rounded-xl border border-white/20 bg-white/10 p-3 text-white"
+>
+<option value="" className="bg-zinc-900">
+Выберите размер
+</option>
+
+{product.sizes
+.filter(
+(s)=>
+s.status !== "unavailable" &&
+(
+Number(s.stockOffline ?? 0) +
+Number(s.stockWB ?? 0)
+)>0
+)
+.map((s)=>(
+<option
+key={s.value}
+value={String(s.value)}
+className="bg-zinc-900"
+>
+{s.value}
+{Number(s.stockOffline ?? 0)>0
+ ? " — магазин"
+ : " — WB"}
+</option>
+))}
+
+</select>
+</div>
+
+  <div>
+    <label
+      className="text-white/50 text-xs mb-1.5 block"
+      htmlFor="order-name"
+    >
+      Ваше имя *
+    </label>
+
+    <input
+      id="order-name"
+      type="text"
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      placeholder="Иван"
+      className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none ${
+        errors.name ? "border-red-400" : "border-white/10"
+      }`}
+    />
+
+    {errors.name && (
+      <p className="text-red-400 text-xs mt-1">
+        {errors.name}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label
+      className="text-white/50 text-xs mb-1.5 block"
+      htmlFor="order-phone"
+    >
+      Телефон (привязанный к Telegram/WhatsApp/MAX)*
+    </label>
+
+    <input
+      id="order-phone"
+      type="tel"
+      value={phone}
+      onChange={(e) => setPhone(e.target.value)}
+      placeholder="+7 900 000-00-00"
+      className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none ${
+        errors.phone ? "border-red-400" : "border-white/10"
+      }`}
+    />
+
+    {errors.phone && (
+      <p className="text-red-400 text-xs mt-1">
+        {errors.phone}
+      </p>
+    )}
+  </div>
+
+ <div>
+  <label
+    className="text-white/50 text-xs mb-1.5 block"
+    htmlFor="order-telegram"
+  >
+    Telegram (необязательно)
+  </label>
+
+  <input
+    id="order-telegram"
+    type="text"
+    value={telegram}
+    onChange={(e) => setTelegram(e.target.value)}
+    placeholder="@username"
+    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30"
+  />
+</div>
+
+<div>
+  <label
+    className="text-white/50 text-xs mb-1.5 block"
+    htmlFor="order-comment"
+  >
+    Комментарий
+  </label>
+
+  <textarea
+    id="order-comment"
+    value={comment}
+    onChange={(e) => setComment(e.target.value)}
+    placeholder={`Товар: ${product.name}${selectedSize ? `\nРазмер: ${selectedSize}` : ""}`}
+    rows={3}
+    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none transition-all focus:border-white/30 resize-none"
+  />
+</div>
 
                     {status === "error" && (
                       <p className="text-red-400 text-sm text-center" role="alert">

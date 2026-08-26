@@ -1,15 +1,26 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+export { cn } from "../utils/cn";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export function formatPrice(value: number): string {
+  if (!value && value !== 0) return "—";
+  return new Intl.NumberFormat("ru-RU").format(Math.round(value)) + " ₽";
 }
 
-export function formatPrice(price: number, currency = "₽"): string {
-  return new Intl.NumberFormat("ru-RU").format(price) + " " + currency;
+export function pluralize(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+export function reviewsWord(count: number): string {
+  return pluralize(count, "отзыв", "отзыва", "отзывов");
 }
 
 export function getDiscount(price: number, oldPrice: number): number {
+  if (!oldPrice) return 0;
   return Math.round(((oldPrice - price) / oldPrice) * 100);
 }
 

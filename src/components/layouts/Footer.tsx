@@ -14,9 +14,13 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 border border-white/20 rounded-xl flex items-center justify-center">
-                <span className="text-sm font-black tracking-tighter text-white">VB</span>
-              </div>
+              <div className="w-10 h-10 overflow-hidden rounded-xl flex items-center justify-center shrink-0">
+  <img
+    src="/favicon.svg"
+    alt="VB STORE"
+    className="w-full h-full object-contain"
+  />
+</div>
               <span className="font-bold text-lg tracking-widest text-white uppercase">{settings.storeName}</span>
             </Link>
             <p className="text-white/40 text-sm leading-relaxed mb-6">

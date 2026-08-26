@@ -1,36 +1,77 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Tag } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Hero from "../components/sections/Hero";
-import FeaturedProducts from "../components/sections/FeaturedProducts";
 import Advantages from "../components/sections/Advantages";
 import ReviewsSection from "../components/sections/ReviewsSection";
 import ContactsSection from "../components/sections/ContactsSection";
 import ProductCard from "../components/ui/ProductCard";
 import { loadProducts, type Product } from "../lib/api";
-import { banners } from "../store-data/banners";
 import { seo } from "../store-data/seo";
 
+// Категории подборок: пол → отображаемое название
+const GENDER_TABS: { gender: string; label: string }[] = [
+  { gender: "Мужской", label: "Мужчинам" },
+  { gender: "Женский", label: "Женщинам" },
+  { gender: "Мальчики", label: "Мальчикам" },
+  { gender: "Девочки", label: "Девочкам" },
+];
+
+// Категории блока миниатюр (Wildberries-стиль)
+const CATEGORY_TILES: {
+  label: string;
+  gender?: string;
+  category?: string;
+  catalogParam: string;
+}[] = [
+  { label: "Для мужчин", gender: "Мужской", catalogParam: "gender=Мужской" },
+  { label: "Для женщин", gender: "Женский", catalogParam: "gender=Женский" },
+  { label: "Для девочек", gender: "Девочки", catalogParam: "gender=Девочки" },
+  { label: "Для мальчиков", gender: "Мальчики", catalogParam: "gender=Мальчики" },
+  { label: "Товары", category: "Товары", catalogParam: "category=Товары" },
+];
+
+function getTopByGender(products: Product[], gender: string, count: number): Product[] {
+  const normalize = (s: string) => s.trim().toLowerCase();
+  return [...products]
+    .filter((p) => normalize(p.gender) === normalize(gender))
+    .sort((a, b) => b.price - a.price)
+    .slice(0, count);
+}
+
+function getTileImage(
+  products: Product[],
+  tile: { gender?: string; category?: string }
+): string {
+  const normalize = (s: string) => s.trim().toLowerCase();
+  let sorted: Product[] = [];
+
+  if (tile.gender) {
+    sorted = [...products]
+      .filter((p) => normalize(p.gender) === normalize(tile.gender!))
+      .sort((a, b) => b.price - a.price);
+  } else if (tile.category) {
+    sorted = [...products]
+      .filter((p) => normalize(p.category) === normalize(tile.category!))
+      .sort((a, b) => b.price - a.price);
+  }
+
+  const first = sorted.find((p) => p.images && p.images.length > 0);
+  return first?.images?.[0] ?? "";
+}
+
 export default function HomePage() {
-  const [newProducts, setNewProducts] = useState<Product[]>([]);
-  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
 
     async function load() {
       const products = await loadProducts();
-
       if (!isActive) return;
-
-      const newItems = products.filter((product) => product.isNew).slice(0, 4);
-      const saleItems = products
-        .filter((product) => product.isSale || (product.discount ?? 0) > 0 || (product.oldPrice ?? 0) > product.price)
-        .slice(0, 4);
-
-      setNewProducts(newItems.length > 0 ? newItems : products.slice(0, 4));
-      setSaleProducts(saleItems.length > 0 ? saleItems : products.slice(0, 4));
+      setAllProducts(products);
     }
 
     void load();
@@ -44,57 +85,132 @@ export default function HomePage() {
     document.title = seo.home.title;
   }, []);
 
+  // Фильтруем вкладки, у которых есть хоть 1 товар
+  const validTabs = useMemo(() => {
+    if (allProducts.length === 0) return GENDER_TABS;
+    return GENDER_TABS.filter((tab) => {
+      const normalize = (s: string) => s.trim().toLowerCase();
+      return allProducts.some((p) => normalize(p.gender) === normalize(tab.gender));
+    });
+  }, [allProducts]);
+
+  // Автоматическое переключение вкладок каждые 5 секунд
+  useEffect(() => {
+    if (validTabs.length < 2) return;
+
+    const interval = setInterval(() => {
+      setGenderTabIndex((prev) => (prev + 1) % validTabs.length);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [validTabs.length]);
+
+  // При изменении validTabs убедимся, что индекс не выходит за пределы
+  useEffect(() => {
+    if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
+      setGenderTabIndex(0);
+    }
+  }, [validTabs.length, genderTabIndex]);
+
+  // 3 самых дорогих товара текущей вкладки
+  const currentTab = validTabs[genderTabIndex] ?? validTabs[0];
+  const featuredProducts = useMemo(() => {
+    if (!currentTab || allProducts.length === 0) return [];
+    return getTopByGender(allProducts, currentTab.gender, 3);
+  }, [allProducts, currentTab]);
+
+  // Изображения для плиток категорий
+  const tileImages = useMemo(() => {
+    return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
+  }, [allProducts]);
+
   return (
     <main>
       {/* Hero */}
       <Hero />
 
-      {/* Featured */}
-      <FeaturedProducts />
-
-      {/* Banners */}
-      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6" aria-label="Баннеры">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {banners.map((banner, i) => (
-            <motion.div
-              key={banner.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-            >
-              <Link
-                to={banner.href}
-                className="group relative block rounded-2xl overflow-hidden aspect-[4/3] bg-white/4 border border-white/6 hover:border-white/15 transition-all"
-                aria-label={banner.title}
+      {/* Подборка товаров по полу */}
+      {allProducts.length > 0 && (
+        <section
+          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          aria-labelledby="featured-title"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="flex items-end justify-between mb-8"
+          >
+            <div>
+              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
+                Подборка
+              </p>
+              <h2
+                id="featured-title"
+                className="text-white font-black text-4xl md:text-5xl tracking-tight"
               >
-                {banner.image && (
-                  <img
-                    src={banner.image}
-                    alt={banner.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-5">
-                  {banner.badge && (
-                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-white/60 border border-white/20 px-2 py-0.5 rounded mb-2">
-                      {banner.badge}
-                    </span>
-                  )}
-                  <h3 className="text-white font-bold text-lg">{banner.title}</h3>
-                  <p className="text-white/60 text-sm">{banner.subtitle}</p>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-      </section>
+                Лучшее
+              </h2>
+            </div>
+            <Link
+              to="/catalog"
+              className="hidden sm:flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors group"
+            >
+              Весь каталог
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
 
-      {/* New Products */}
-      {newProducts.length > 0 && (
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6" aria-labelledby="new-title">
+          {/* Табы категорий */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            {validTabs.map((tab, i) => (
+              <button
+                key={tab.gender}
+                type="button"
+                onClick={() => setGenderTabIndex(i)}
+                className={`text-sm px-4 py-2 rounded-xl transition-all font-medium ${
+                  genderTabIndex === i
+                    ? "bg-white text-black"
+                    : "bg-white/6 text-white/50 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Товары с анимацией при смене вкладки */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab?.gender ?? "empty"}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.35 }}
+            >
+              {featuredProducts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                  {featuredProducts.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-white/20 text-lg">Нет товаров в этой категории</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      )}
+
+      {/* Каталог — все товары (первые 8) */}
+      {allProducts.length > 0 && (
+        <section
+          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          aria-labelledby="catalog-title"
+        >
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -103,86 +219,101 @@ export default function HomePage() {
             className="flex items-end justify-between mb-12"
           >
             <div>
-              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">Только появились</p>
-              <h2 id="new-title" className="text-white font-black text-4xl md:text-5xl tracking-tight">
-                Новинки
+              <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
+                Весь каталог
+              </p>
+              <h2
+                id="catalog-title"
+                className="text-white font-black text-4xl md:text-5xl tracking-tight"
+              >
+                Товары
               </h2>
             </div>
             <Link
-              to="/catalog?filter=new"
+              to="/catalog"
               className="hidden sm:flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors group"
             >
-              Все новинки
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              Перейти в каталог
+              <ArrowRight
+                size={16}
+                className="group-hover:translate-x-1 transition-transform"
+              />
             </Link>
           </motion.div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {newProducts.map((product, i) => (
+            {allProducts.slice(0, 8).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
-        </section>
-      )}
 
-      {/* Categories */}
-      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6" aria-label="Категории">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">Подборка по категориям</p>
-            <h2 className="text-white font-black text-3xl md:text-4xl tracking-tight">Категории</h2>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {[
-            { label: "Мужские кроссовки", href: "/catalog?category=Мужские кроссовки" },
-            { label: "Женские кроссовки", href: "/catalog?category=Женские кроссовки" },
-            { label: "Бутсы", href: "/catalog?category=Бутсы" },
-            { label: "Ботинки", href: "/catalog?category=Ботинки" },
-            { label: "Лоферы", href: "/catalog?category=Лоферы" },
-            { label: "Туфли", href: "/catalog?category=Туфли" },
-            { label: "Аксессуары", href: "/catalog?category=Аксессуары" },
-          ].map((item) => (
+          <div className="flex justify-center mt-10 mb-20">
             <Link
-              key={item.label}
-              to={item.href}
-              className="rounded-2xl border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/70 hover:text-white hover:bg-white/8 transition-all"
+              to="/catalog"
+              className="
+                inline-flex items-center justify-center
+                px-8 py-4
+                rounded-2xl
+                bg-white text-black
+                font-bold text-sm
+                uppercase tracking-wider
+                transition-all
+                hover:bg-white/90
+                hover:scale-[1.03]
+                active:scale-[0.98]
+              "
             >
-              {item.label}
+              Смотреть ещё
             </Link>
-          ))}
-        </div>
-      </section>
+          </div>
 
-      {/* Sale CTA */}
-      {saleProducts.length > 0 && (
-        <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6" aria-label="Распродажа">
+          {/* Категории — Wildberries-стиль */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="relative overflow-hidden rounded-3xl bg-white/4 border border-white/8 p-8 md:p-12"
+            transition={{ duration: 0.6 }}
+            className="mt-4"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent" />
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Tag size={18} className="text-red-400" />
-                  <span className="text-red-400 text-sm font-bold uppercase tracking-widest">Скидки до 43%</span>
-                </div>
-                <h2 className="text-white font-black text-3xl md:text-4xl tracking-tight mb-2">
-                  Горячая распродажа
-                </h2>
-                <p className="text-white/40 text-base">
-                  Лучшие цены на обувь и аксессуары. Успейте купить.
-                </p>
-              </div>
-              <Link
-                to="/sale"
-                className="shrink-0 group inline-flex items-center gap-3 bg-white text-black font-semibold px-8 py-4 rounded-2xl hover:bg-white/90 transition-all hover:scale-105"
-              >
-                Смотреть распродажу
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
+            <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-6">
+              Категории
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {CATEGORY_TILES.map((tile, i) => {
+                const img = tileImages[i];
+                return (
+                  <motion.div
+                    key={tile.label}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.35, delay: i * 0.07 }}
+                  >
+                    <Link
+                      to={`/catalog?${tile.catalogParam}`}
+                      className="group flex flex-col items-center gap-3"
+                    >
+                      <div className="w-full aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/8 group-hover:border-white/25 transition-all">
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={tile.label}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/10 text-4xl">
+                            👕
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-white/70 text-sm font-medium text-center group-hover:text-white transition-colors">
+                        {tile.label}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         </section>

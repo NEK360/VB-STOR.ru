@@ -42,15 +42,20 @@ export default function Header() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 md:h-18">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 border border-white/20 rounded-xl flex items-center justify-center group-hover:border-white/50 transition-colors duration-300">
-              <span className="text-sm font-black tracking-tighter text-white">VB</span>
-            </div>
-            <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
-              {settings.storeName}
-            </span>
-          </Link>
+         {/* Logo */}
+<Link to="/" className="flex items-center gap-3 group shrink-0">
+  <div className="w-9 h-9 flex items-center justify-center overflow-hidden rounded-xl">
+    <img
+      src="/favicon.svg"
+      alt="VB STORE"
+      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+    />
+  </div>
+
+  <span className="font-bold text-lg tracking-widest text-white uppercase hidden sm:block whitespace-nowrap">
+    {settings.storeName}
+  </span>
+</Link>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1" aria-label="Основная навигация">
@@ -217,6 +222,10 @@ export default function Header() {
                 <a href={contacts.maxUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
                   <MessageCircle size={16} />
                   MAX
+                   </a>
+                <a href={settings.vkUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
+                  <MessageCircle size={16} />
+                  VK
                 </a>
               </div>
             </motion.nav>

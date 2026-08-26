@@ -1,3 +1,5 @@
+import { reviews } from "../store-data/reviews";
+
 export interface Product {
   id: string;
   article: string;
@@ -87,11 +89,40 @@ interface ProductPayload {
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
 const CACHE_KEY = "catalog_cache";
+
 let cacheProducts: Product[] | null = null;
 let cachePromise: Promise<Product[]> | null = null;
 
+function getProductRating(product: { id: string; article: string }) {
+  const productReviews = reviews.filter(
+    (r) =>
+      String(r.productId) === String(product.id) ||
+      String(r.productId) === String(product.article)
+  );
+
+  if (!productReviews.length) {
+    return {
+      rating: 5,
+      reviewsCount: 0,
+    };
+  }
+
+  const rating =
+    productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
+
+  return {
+    rating: Number(rating.toFixed(1)),
+    reviewsCount: productReviews.length,
+  };
+}
+
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+  const reviewInfo = getProductRating({
+    id: String(p.id ?? ""),
+    article: String(p.article ?? ""),
+  });
+
   const normalizedSizes = Array.isArray(p.sizes)
     ? p.sizes
         .filter((size) => size?.value)
@@ -99,16 +130,17 @@ function normalizeProduct(p: ProductPayload): Product {
           value: String(size.value ?? ""),
           status:
             size.status === "low"
-              ? "low" as const
+              ? ("low" as const)
               : size.status === "unavailable"
-                ? "unavailable" as const
-                : "available" as const,
+                ? ("unavailable" as const)
+                : ("available" as const),
           stockOffline: size.stockOffline,
           stockWB: size.stockWB,
         }))
     : p.size
-      ? [{ value: String(p.size), status: "available" as const }]
+      ? [{ value: String(p.size), status: "available" as const, stockOffline: undefined, stockWB: undefined }]
       : [];
+
   const colors = Array.isArray(p.colors)
     ? p.colors.map((color) => ({
         name: String(color.name ?? ""),
@@ -140,10 +172,10 @@ function normalizeProduct(p: ProductPayload): Product {
     sizes: normalizedSizes,
     colors,
     gender: String(p.gender ?? ""),
-    rating: Number(p.rating ?? 5),
-    reviewsCount: Number(p.reviewsCount ?? 0),
     available: Boolean(p.available),
     offlineOnly: hasOffline && !hasWB,
+    rating: reviewInfo.rating,
+    reviewsCount: reviewInfo.reviewsCount,
     wbOnly: !hasOffline && hasWB,
     bothAvailable: hasOffline && hasWB,
     isNew: Boolean(p.isNew),
@@ -174,11 +206,12 @@ function getProductKey(product: Product): string {
 }
 
 function mergeSize(existing: Product["sizes"][number], incoming: Product["sizes"][number]) {
-  const status: Product["sizes"][number]["status"] = existing.status === "available" || incoming.status === "available"
-    ? "available"
-    : existing.status === "low" || incoming.status === "low"
-      ? "low"
-      : "unavailable";
+  const status: Product["sizes"][number]["status"] =
+    existing.status === "available" || incoming.status === "available"
+      ? "available"
+      : existing.status === "low" || incoming.status === "low"
+        ? "low"
+        : "unavailable";
 
   return {
     value: existing.value,
@@ -254,8 +287,10 @@ function groupProducts(products: Product[]): Product[] {
     existing.isSale = existing.isSale || product.isSale;
     existing.available = existing.available || product.available;
 
-    const mergedOffline = existing.offlineOnly || product.offlineOnly || existing.sizes.some((size) => (size.stockOffline ?? 0) > 0) || product.available;
-    const mergedWB = existing.wbOnly || product.wbOnly || existing.wbUrl || existing.sizes.some((size) => (size.stockWB ?? 0) > 0);
+    const mergedOffline =
+      existing.offlineOnly || product.offlineOnly || existing.sizes.some((size) => (size.stockOffline ?? 0) > 0) || product.available;
+    const mergedWB =
+      existing.wbOnly || product.wbOnly || Boolean(existing.wbUrl) || existing.sizes.some((size) => (size.stockWB ?? 0) > 0);
     existing.offlineOnly = mergedOffline && !mergedWB;
     existing.wbOnly = !mergedOffline && mergedWB;
     existing.bothAvailable = mergedOffline && mergedWB;
@@ -311,13 +346,13 @@ export async function loadProducts(): Promise<Product[]> {
       }
 
       const data = (await res.json()) as ProductPayload[];
+
       if (!Array.isArray(data)) {
         return cacheProducts ?? [];
       }
 
       const normalized = data.map(normalizeProduct);
       const grouped = groupProducts(normalized);
-
       cacheProducts = grouped;
 
       if (typeof window !== "undefined") {
@@ -325,6 +360,13 @@ export async function loadProducts(): Promise<Product[]> {
       }
 
       return grouped;
+    } catch (error) {
+      if (cacheProducts) {
+        return cacheProducts;
+      }
+      // eslint-disable-next-line no-console
+      console.error("Ошибка загрузки товаров:", error);
+      return [];
     } finally {
       cachePromise = null;
     }

@@ -16,7 +16,7 @@ export const advantages: Advantage[] = [
     id: "2",
     icon: "⚡",
     title: "Быстрая доставка",
-    description: "Отправляем заказы в день оформления. Доставка по всей России через СДЭК и Почту России.",
+    description: "Отправляем заказы в день оформления. Доставка по всей России через Wildberries, OZON, Яндекс, СДЭК и Почту России.",
   },
   {
     id: "3",
@@ -28,7 +28,7 @@ export const advantages: Advantage[] = [
     id: "4",
     icon: "💬",
     title: "Поддержка 24/7",
-    description: "Консультируем по WhatsApp и Telegram. Поможем с выбором размера и оформлением заказа.",
+    description: "Консультируем по MAX, WhatsApp и Telegram. Поможем с выбором размера и оформлением заказа.",
   },
   {
     id: "5",

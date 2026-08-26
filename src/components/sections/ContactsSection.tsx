@@ -33,7 +33,15 @@ export default function ContactsSection() {
       label: "MAX",
       value: contacts.max,
       href: contacts.maxUrl,
-      method: "MAX",
+      method: "max",
+      external: true,
+    },
+     {
+      icon: MessageCircle,
+      label: "VK",
+      value: contacts.vk,
+      href: contacts.vkUrl,
+      method: "vk",
       external: true,
     },
     {
