@@ -222,6 +222,10 @@ export default function Header() {
                 <a href={contacts.maxUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
                   <MessageCircle size={16} />
                   MAX
+                   </a>
+                <a href={settings.vkUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-white/60 hover:text-white text-sm transition-colors">
+                  <MessageCircle size={16} />
+                  VK
                 </a>
               </div>
             </motion.nav>
