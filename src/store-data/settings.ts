@@ -11,7 +11,7 @@ export const settings = {
   whatsapp: "+7 918 797-02-30",
   whatsappUrl: "https://wa.me/79187970230",
   vk: "vbstore",
-  vkUrl: "https://vk.com/vbstore",
+  vkUrl: "https://vk.ru/vb_store_ru",
   max: "MAХ",
   maxUrl: "https://max.ru/id260706786502_biz",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
