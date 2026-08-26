@@ -12,7 +12,7 @@ export const settings = {
   whatsappUrl: "https://wa.me/79187970230",
   vk: "vbstore",
   vkUrl: "https://vk.com/vbstore",
-  max: "MAX",
+  max: "MAХ",
   maxUrl: "https://max.ru/id260706786502_biz",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
   city: "г. Изобильный",
