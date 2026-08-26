@@ -2,7 +2,7 @@ export const contacts = {
   phone: "+7 918 797-02-30",
   phoneClean: "79187970230",
   email: "vbshop456@gmail.com",
-  @VB_STORE_IZOB: "Telegram",
+  VB_STORE_IZOB: "Telegram",
   telegramUrl: "https://t.me/VB_STORE_IZOB",
   whatsapp: "+7 918 797-02-30",
   whatsappUrl: "https://wa.me/79187970230",
