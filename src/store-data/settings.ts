@@ -13,7 +13,7 @@ export const settings = {
   vk: "vbstore",
   vkUrl: "https://vk.com/vbstore",
   max: "VB_STORE",
-  maxUrl: "https://vk.ru/away.php?to=https%3A%2F%2Fmax.ru%2Fjoin%2FZNvdah2gh1uWvju7mh49FLZ3bF8hVo5SOUd5ADrO0Ok&utf=1",
+  maxUrl: "https://max.ru/id260706786502_biz",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
   city: "г. Изобильный",
   region: "Ставропольский край",
