@@ -7,7 +7,7 @@ export const contacts = {
   whatsapp: "+7 918 797-02-30",
   whatsappUrl: "https://wa.me/79187970230",
   max: "MAX",
-  maxUrl: "https://max.ru/u/f9LHodD0cOIXaL-KQEQZ2RLZ97U4sJiS8Aze4TdXvv-wAtzJq3ZP5V2NzFc",
+  maxUrl: "https://vk.ru/away.php?to=https%3A%2F%2Fmax.ru%2Fjoin%2FZNvdah2gh1uWvju7mh49FLZ3bF8hVo5SOUd5ADrO0Ok&utf=1",
   address: "г. Изобильный, Ставропольский край, ул. Кирова, 2Г",
   city: "г. Изобильный",
   region: "Ставропольский край",
