@@ -88,6 +88,8 @@ interface ProductPayload {
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
+const VB_API_URL =
+  "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec";
 const CACHE_KEY = "catalog_cache";
 
 let cacheProducts: Product[] | null = null;
