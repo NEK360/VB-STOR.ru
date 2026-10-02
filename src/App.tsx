@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   HashRouter,
   Routes,
@@ -49,6 +49,15 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 // Страница в переходной обёртке + защита от «белого экрана» при непредвиденной ошибке
 function SafePage({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
+
+  // Эти страницы (корзина, оформление, заказы, профиль, карточка товара) всегда открываются с самого верха.
+  // Глобальный ScrollToTop после «Назад» пропускает ближайший обычный переход: флаг popstate он взводит уже
+  // ПОСЛЕ того, как роутер обработал маршрут. Без этого корзина или оформление открывались бы со смещением
+  // прокрутки предыдущей страницы, и заголовок с первыми товарами оказывался бы за кадром.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, []);
+
   return (
     <PageWrapper>
       <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
