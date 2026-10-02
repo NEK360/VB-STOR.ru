@@ -7,4 +7,4 @@
  * его здесь и в src/lib/api.ts.
  */
 export const BACKEND_URL =
-  "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec";
+  "https://script.google.com/macros/s/AKfycbz2p44X5L9vqrBzHH_bXiEuNWP8P2PnuytL_l-kMxU2HGp6eyYtZR7TZtyNHkbEDWa51A/exec";
