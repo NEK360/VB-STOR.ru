@@ -80,7 +80,7 @@
 
   <label for="url">Адрес веб-приложения (оканчивается на <code>/exec</code>)</label>
   <input id="url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
-         value="https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec">
+         value="https://script.google.com/macros/s/AKfycbz2p44X5L9vqrBzHH_bXiEuNWP8P2PnuytL_l-kMxU2HGp6eyYtZR7TZtyNHkbEDWa51A/exec">
   <p class="hint">Это адрес, который сейчас прописан на сайте (<code>src/lib/config.ts</code>). Если вы создавали новое
     развёртывание, вставьте сюда его адрес и проверьте.</p>
 
@@ -108,6 +108,10 @@
   var els = { url: $("url"), run: $("run"), steps: $("steps"), verdict: $("verdict"), vtitle: $("vtitle"),
               vbody: $("vbody"), more: $("more"), report: $("report"), copy: $("copy") };
   var lines = [];
+  var params = new URLSearchParams(location.search);
+  var TIMEOUT_MS = Number(params.get("timeout")) || 30000;  // сколько ждать ответ
+  var SLOW_MS = Number(params.get("slow")) || 8000;         // дольше этого таблица считается медленной
+  var LIMIT_TEXT = Math.round(TIMEOUT_MS / 1000) + " с";
 
   function log(text) { lines.push(text); els.report.value = lines.join("\n"); }
 
@@ -119,7 +123,7 @@
   /** fetch с таймаутом: никогда не бросает исключение, а возвращает описание результата. */
   function request(url, init, timeoutMs) {
     var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 30000);
+    var timer = setTimeout(function () { controller.abort(); }, timeoutMs || TIMEOUT_MS);
     var started = Date.now();
     var options = init || {};
     options.signal = controller.signal;
@@ -186,7 +190,7 @@
     var r = await request(withParam(url, "action=catalog&_=" + Date.now()), { redirect: "follow" });
     log("[1] GET ?action=catalog -> " + (r.reached ? "HTTP " + r.status + ", " + r.ms + " мс, JSON: " + (r.json !== null) : "нет ответа (" + r.error + ")"));
     if (!r.reached) {
-      step.set("bad", r.timeout ? "Адрес не ответил за 30 секунд." : "Браузер не получил ответ от адреса.");
+      step.set("bad", r.timeout ? "Адрес не ответил за " + LIMIT_TEXT + "." : "Браузер не получил ответ от адреса.");
       return { reached: false };
     }
     var rows = Array.isArray(r.json) ? r.json : (r.json && Array.isArray(r.json.rows) ? r.json.rows : null);
@@ -207,7 +211,7 @@
     var r = await request(url, POST_INIT());
     log("[2] POST {action:me, token:vb-check} -> " + (r.reached ? "HTTP " + r.status + ", " + r.ms + " мс, JSON: " + (r.json !== null) + ", ответ: " + snippet(r.text).slice(0, 120) : "нет ответа (" + r.error + ")"));
     if (!r.reached) {
-      step.set("bad", r.timeout ? "Сервер не ответил за 30 секунд." : "Браузер не смог прочитать ответ сервера. Выясняю причину…");
+      step.set("bad", r.timeout ? "Сервер не ответил за " + LIMIT_TEXT + "." : "Браузер не смог прочитать ответ сервера. Выясняю причину…");
       return { reached: false, step: step, timeout: r.timeout };
     }
     var code = r.json && r.json.error && r.json.error.code;
@@ -233,6 +237,40 @@
     "В списке «Версия» выберите «Новая версия» и нажмите «Развернуть». Не создавайте «Новое развёртывание»: у него будет другой адрес.",
     "Вернитесь сюда и нажмите «Проверить» ещё раз.",
     "Если не помогло: проверьте, что в проекте есть doPost (шаг 2 инструкции), и откройте в редакторе раздел «Выполнения» — после проверки там должна появиться строка doPost; если она со статусом «Не выполнено», в ней текст ошибки (про разрешения — запустите vbStoreSetup в редакторе, подтвердите доступ и опубликуйте новую версию)."
+  ];
+
+  var LOGIN_BODY = JSON.stringify({ action: "login", phone: "+79990000000", proof: new Array(65).join("0") });
+
+  /** Вход с несуществующим номером: сервер открывает лист USERS и читает его, но ничего не пишет в таблицу. */
+  async function checkSheet(url) {
+    var step = makeStep("3. Чтение таблицы (проверка входа, без записи)");
+    var init = POST_INIT();
+    init.body = LOGIN_BODY;
+    var r = await request(url, init);
+    log("[3] POST {action:login, фиктивный номер} -> " + (r.reached ? "HTTP " + r.status + ", " + r.ms + " мс, ответ: " + snippet(r.text).slice(0, 120) : "нет ответа (" + r.error + ")"));
+    if (!r.reached) {
+      step.set("bad", r.timeout ? "Сервер не ответил за " + LIMIT_TEXT + ": чтение листа USERS зависает." : "Браузер не смог прочитать ответ.");
+      return { reached: false, timeout: r.timeout };
+    }
+    var code = r.json && r.json.error && r.json.error.code;
+    if (code === "SERVER_BUSY") {
+      step.set("bad", "Сервер ответил SERVER_BUSY: общую блокировку скрипта держит другое выполнение.");
+      return { reached: true, busy: true };
+    }
+    if (code === "INVALID_CREDENTIALS" || code === "TOO_MANY_ATTEMPTS") {
+      var slow = r.ms > SLOW_MS;
+      step.set(slow ? "warn" : "ok", "Таблица прочитана за " + r.ms + " мс" +
+        (slow ? " — это очень медленно: из-за этого вход, регистрация и заказы могут не успевать." : ". Лист USERS на месте."));
+      return { reached: true, ok: true, slow: slow, ms: r.ms };
+    }
+    step.set("warn", "Неожиданный ответ: " + snippet(r.text));
+    return { reached: true, ok: false };
+  }
+
+  var BUSY_STEPS = [
+    "Откройте в редакторе «Триггеры» (значок часов слева): если есть триггер, который долго работает с таблицей (например, синхронизация каталога), он может занимать общую блокировку. Временно отключите его и проверьте снова.",
+    "Откройте «Выполнения» и посмотрите, нет ли выполнений в статусе «Выполняется» или очень долгих — это они держат блокировку.",
+    "Запустите в редакторе vbStoreSelfTest и пришлите мне журнал: там время открытия таблицы, чтения, записи и состояние блокировки."
   ];
 
   var running = false;
@@ -261,6 +299,7 @@
     try {
       var cat = await checkCatalog(url);
       var post = await checkPost(url);
+      var sheet = (cat.ok && post.ok) ? await checkSheet(url) : null;
 
       var probeGet = null, probePost = null;
       if (!cat.reached || (!post.reached && !post.timeout)) {
@@ -277,9 +316,22 @@
           : "Нет ответа от сервера.");
       }
 
-      if (cat.ok && post.ok) {
+      if (cat.ok && post.ok && sheet && sheet.busy) {
+        verdict("bad", "Сервер занят: общую блокировку держит другое выполнение", [
+          "Скрипт отвечает, но другое выполнение вашего проекта сейчас держит общую блокировку. Пока она занята, регистрация и заказы получают «Сервер сейчас занят»."
+        ], BUSY_STEPS);
+      } else if (cat.ok && post.ok && sheet && sheet.reached === false) {
+        verdict("bad", "Чтение таблицы зависает", [
+          "Сам скрипт отвечает, но обращение к таблице не укладывается в " + LIMIT_TEXT + ". Из-за этого вход, регистрация и заказы получают «Сервер слишком долго отвечает»."
+        ], BUSY_STEPS);
+      } else if (cat.ok && post.ok && sheet && sheet.slow) {
+        verdict("warn", "Скрипт работает, но таблица отвечает очень медленно (" + sheet.ms + " мс)", [
+          "Обычно чтение занимает 1–3 секунды. Если так медленно отвечает таблица, регистрация и заказы могут не успевать за время ожидания на сайте."
+        ], BUSY_STEPS);
+      } else if (cat.ok && post.ok) {
         verdict("ok", "Всё работает", [
-          "Адрес живой, доступ «Все» включён, серверная часть отвечает. Регистрация, вход и заказы должны работать.",
+          "Адрес живой, доступ «Все» включён, серверная часть отвечает, таблица читается. Эта проверка ничего не записывает, поэтому запись и общую блокировку она не затрагивает.",
+          "Если регистрация всё равно не проходит: обновите VBStoreApi.gs свежей версией из репозитория и опубликуйте новую версию. Тогда вместо долгой загрузки сайт покажет «Сервер сейчас занят», а в «Выполнениях» у doPost в журнале будет причина и время по этапам.",
           "Если на сайте ошибка осталась — обновите страницу сайта без кэша (Ctrl+F5, на телефоне — закройте и откройте вкладку) и попробуйте ещё раз."
         ]);
       } else if (cat.ok && post.unknownAction) {
@@ -303,7 +355,7 @@
           "Скопируйте её и пришлите разработчику вместе с техническим отчётом ниже."
         ]);
       } else if (cat.ok && !post.reached && post.timeout) {
-        verdict("warn", "Сервер не ответил за 30 секунд", [
+        verdict("warn", "Сервер не ответил за " + LIMIT_TEXT, [
           "Запрос ушёл, но скрипт не успел ответить. Бывает при «холодном старте» Google или если выполнение зависло."
         ], [
           "Нажмите «Проверить ещё раз» — обычно со второго раза скрипт отвечает быстро.",
