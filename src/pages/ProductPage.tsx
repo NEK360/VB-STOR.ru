@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart,
@@ -18,13 +18,18 @@ import { formatPrice, reviewsWord } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { analytics } from "../lib/analytics";
-import OrderModal from "../components/ui/OrderModal";
+import { addToCart, applyPromoCode, clearPromoCode, useCart } from "../lib/cart";
+import { startBuyNow } from "../lib/checkoutSession";
+import { calculateTotals } from "../lib/pricing";
+import { shareProductWithFeedback } from "../lib/share";
+import { getMaxQuantity, getSizeInfoByValue, hasSizes, hasWbStock, isProductOrderable } from "../lib/stock";
+import { toast } from "../lib/toast";
 import ProductCard from "../components/ui/ProductCard";
+import SizeSheet from "../components/ui/SizeSheet";
 
-const PROMOCODES: Record<string, number> = {
-  SKFU: 5,
-  VB5: 5,
-};
+// Промокоды теперь описаны в одном месте — lib/promo.ts (раньше список был здесь).
+
+type PurchaseIntent = "cart" | "buy";
 
 const DRAG_THRESHOLD = 10;
 
@@ -77,6 +82,7 @@ export default function ProductPage() {
     };
   }, [id]);
 
+  const navigate = useNavigate();
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
 
@@ -86,13 +92,18 @@ export default function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
 
-  const [orderOpen, setOrderOpen] = useState(false);
+  const [sizeSheet, setSizeSheet] = useState<{ open: boolean; intent: PurchaseIntent }>({
+    open: false,
+    intent: "cart",
+  });
   const [openSection, setOpenSection] = useState<
     "about" | "details" | "delivery" | null
   >("about");
 
-  const [promoCode, setPromoCode] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  // Применённый промокод общий для карточки, корзины и оформления заказа (lib/cart)
+  const { promoCode: appliedPromo } = useCart();
+  const [promoCode, setPromoCode] = useState(appliedPromo ?? "");
+  const [promoError, setPromoError] = useState(false);
 
   useEffect(() => {
     if (!product) return;
@@ -104,8 +115,9 @@ export default function ProductPage() {
     setSelectedSize(null);
     setSelectedColor(product.colors?.[0]?.name ?? "");
     setImgZoomed(false);
-    setAppliedPromo(null);
-    setPromoCode("");
+    setSizeSheet({ open: false, intent: "cart" });
+    setPromoError(false);
+    setPromoCode(appliedPromo ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
@@ -204,41 +216,92 @@ export default function ProductPage() {
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
   const wbQty = Number(selectedSizeObj?.stockWB ?? 0);
 
-  const promoPercent = appliedPromo ? (PROMOCODES[appliedPromo] ?? 0) : 0;
-  const basePrice = product?.price ?? 0;
-  const finalPrice = useMemo(() => {
-    if (!basePrice) return 0;
-    if (!promoPercent) return basePrice;
-    return Math.round((basePrice * (100 - promoPercent)) / 100);
-  }, [basePrice, promoPercent]);
-
-  const promoInvalid = promoCode.trim() !== "" && !appliedPromo;
+  // Цена с промокодом — единая функция расчёта (lib/pricing → lib/promo)
+  const priceTotals = useMemo(
+    () => calculateTotals([{ price: product?.price ?? 0, quantity: 1 }], appliedPromo),
+    [product?.price, appliedPromo]
+  );
+  const promoPercent = priceTotals.discountPercent;
+  const finalPrice = priceTotals.total;
 
   const applyPromo = () => {
-    const code = promoCode.trim().toUpperCase();
-    if (!code || !(code in PROMOCODES)) {
-      setAppliedPromo(null);
-      analytics.applyPromo(code, false);
+    // пустое поле + «Применить» при действующем промокоде — убирает промокод
+    if (!promoCode.trim() && appliedPromo) {
+      clearPromoCode();
+      toast.info("Промокод удалён");
       return;
     }
-    setAppliedPromo(code);
-    analytics.applyPromo(code, true);
+
+    const result = applyPromoCode(promoCode);
+    if (!result.ok) {
+      setPromoError(true);
+      analytics.applyPromo(promoCode.trim().toUpperCase(), false);
+      return;
+    }
+    setPromoError(false);
+    setPromoCode(result.promo.code);
+    analytics.applyPromo(result.promo.code, true);
   };
 
-  const handleOrderClick = () => {
-    if (!selectedSize) {
-      alert("Пожалуйста, выберите размер");
+  // «Добавить в корзину» / «Купить сейчас»
+  const runPurchase = (intent: PurchaseIntent, size: string | null) => {
+    if (!product) return;
+    const color = selectedColor || null;
+    const productSize = hasSizes(product) ? size : null;
+
+    if (hasSizes(product) && !productSize) {
+      setSizeSheet({ open: true, intent });
       return;
     }
-    if (shopQty === 0 && wbQty === 0) {
-      alert("Выбранный размер отсутствует");
+
+    if (intent === "cart") {
+      const result = addToCart(product, { size: productSize, color });
+
+      if (result.status === "added" || result.status === "increased") {
+        analytics.addToCart(product.id, product.name, product.price);
+        toast.success(
+          result.status === "added"
+            ? "Товар добавлен в корзину"
+            : `Количество в корзине обновлено: ${result.quantity} шт.`,
+          { action: { label: "Корзина", to: "/cart" } }
+        );
+      } else if (result.status === "max_reached") {
+        toast.info(`В корзине уже всё, что есть в наличии: ${result.max} шт.`, {
+          action: { label: "Корзина", to: "/cart" },
+        });
+      } else if (result.status === "size_required") {
+        setSizeSheet({ open: true, intent });
+      } else {
+        toast.error("Этот размер сейчас нельзя заказать на сайте. Выберите другой размер.");
+      }
       return;
     }
-    if (shopQty === 0 && wbQty > 0) {
-      if (product?.wbUrl) window.open(product.wbUrl, "_blank");
+
+    // «Купить сейчас» — сразу оформление заказа (корзина не затрагивается)
+    if (getMaxQuantity(product, productSize) <= 0) {
+      toast.error("Этот размер сейчас нельзя заказать на сайте. Выберите другой размер.");
       return;
     }
-    setOrderOpen(true);
+    startBuyNow(product, { size: productSize, color });
+    analytics.beginCheckout(1, finalPrice);
+    navigate("/checkout");
+  };
+
+  const handlePurchase = (intent: PurchaseIntent) => {
+    if (!product) return;
+    // если у товара есть размеры и размер не выбран — сначала шторка «Выберите размер»
+    if (hasSizes(product) && !selectedSize) {
+      setSizeSheet({ open: true, intent });
+      return;
+    }
+    runPurchase(intent, selectedSize);
+  };
+
+  const openWildberries = () => {
+    if (product?.wbUrl) {
+      analytics.clickWildberries(product.id);
+      window.open(product.wbUrl, "_blank", "noopener,noreferrer");
+    }
   };
 
   // Обработчик кнопки "Назад в каталог":
@@ -276,6 +339,17 @@ export default function ProductPage() {
       </main>
     );
   }
+
+  // Что показывать вместо прежней кнопки «Оставить заявку»:
+  //  - размер только на Wildberries → прежняя кнопка «Купить на WB» (на сайте он не продаётся);
+  //  - размера нет нигде → «Нет в наличии»;
+  //  - иначе → «Купить сейчас» и «Добавить в корзину».
+  const selectedInfo = getSizeInfoByValue(product, selectedSize);
+  const orderableOnSite = isProductOrderable(product);
+  const showWbButton =
+    Boolean(selectedInfo?.wbOnly) ||
+    (!selectedInfo && !orderableOnSite && hasWbStock(product));
+  const showUnavailable = !showWbButton && (Boolean(selectedInfo?.unavailable) || !orderableOnSite);
 
   return (
     <main className="min-h-screen pt-16 pb-32">
@@ -434,14 +508,7 @@ export default function ProductPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    navigator.share?.({
-                      title: product.name,
-                      url: window.location.href,
-                    }).catch(() =>
-                      navigator.clipboard.writeText(window.location.href)
-                    );
-                  }}
+                  onClick={() => void shareProductWithFeedback(product)}
                   className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:border-white/30 transition-all"
                   aria-label="Поделиться"
                 >
@@ -510,7 +577,10 @@ export default function ProductPage() {
                 <input
                   type="text"
                   value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
+                  onChange={(e) => {
+                    setPromoCode(e.target.value);
+                    if (promoError) setPromoError(false);
+                  }}
                   placeholder="Промокод"
                   className="w-full bg-white/10 border border-white/20 text-white px-4 py-3 rounded-xl outline-none focus:border-white/40"
                 />
@@ -523,7 +593,7 @@ export default function ProductPage() {
                 </button>
               </div>
 
-              {promoInvalid && (
+              {promoError && (
                 <div className="text-rose-400 text-sm mt-2">
                   Промокод не найден
                 </div>
@@ -532,7 +602,18 @@ export default function ProductPage() {
               {appliedPromo && (
                 <div className="text-white/40 text-sm mt-2">
                   Скидка по промокоду: -{promoPercent}% &nbsp; Итоговая цена:{" "}
-                  {formatPrice(finalPrice)}
+                  {formatPrice(finalPrice)}{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPromoCode();
+                      setPromoCode("");
+                      toast.info("Промокод удалён");
+                    }}
+                    className="ml-1 text-white/60 underline underline-offset-2 hover:text-white"
+                  >
+                    Убрать
+                  </button>
                 </div>
               )}
             </div>
@@ -641,7 +722,7 @@ export default function ProductPage() {
                       г. Изобильный, Ставропольский край, ул. Кирова, 2Г
                     </p>
                     <p className="text-white/30 text-xs">
-                      Способы покупки: заявка, WhatsApp, Telegram, MAX
+                      Способы покупки: заказ на сайте, WhatsApp, Telegram, MAX
                     </p>
                   </div>
                 </div>
@@ -672,20 +753,41 @@ export default function ProductPage() {
 
             {/* Кнопки */}
             <div className="flex flex-col gap-3">
-              <button
-                onClick={handleOrderClick}
-                className={`w-full py-4 rounded-2xl font-bold text-base transition-all hover:scale-[1.01] active:scale-[0.99] ${
-                  !selectedSize
-                    ? "bg-white/50 text-black/50 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-white/90"
-                }`}
-              >
-                {selectedSize
-                  ? shopQty === 0 && wbQty > 0
-                    ? "Купить на WB"
-                    : "Оставить заявку"
-                  : "Выберите размер"}
-              </button>
+              {showWbButton ? (
+                <button
+                  type="button"
+                  onClick={openWildberries}
+                  disabled={!product.wbUrl}
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-white text-black transition-all hover:bg-white/90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Купить на WB
+                </button>
+              ) : showUnavailable ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-white/10 text-white/40 cursor-not-allowed"
+                >
+                  Нет в наличии
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handlePurchase("buy")}
+                    className="min-h-14 rounded-2xl bg-white px-2 py-3 text-[13px] sm:text-base font-bold leading-tight text-black transition-all hover:bg-white/90 active:scale-[0.99]"
+                  >
+                    Купить сейчас
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePurchase("cart")}
+                    className="min-h-14 rounded-2xl border border-white/25 bg-white/10 px-2 py-3 text-[13px] sm:text-base font-bold leading-tight text-white transition-all hover:bg-white/20 active:scale-[0.99]"
+                  >
+                    Добавить в корзину
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <a
@@ -868,10 +970,11 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Возможна доставка по запросу, а также самовывоз по
-                        адресу г. Изобильный, ул. Кирова, 2Г. Для заказа
-                        обратитесь через WhatsApp, Telegram, MAX или форму
-                        заявки.
+                        Оформите заказ на сайте: выберите пункт выдачи в Изобильном
+                        или доставку по России (Wildberries, OZON, Яндекс, CDEK,
+                        Почта России). Возможен и самовывоз по адресу г. Изобильный,
+                        ул. Кирова, 2Г. Также можно обратиться через WhatsApp,
+                        Telegram или MAX.
                       </p>
                     </motion.div>
                   )}
@@ -899,15 +1002,17 @@ export default function ProductPage() {
         )}
       </div>
 
-      <OrderModal
+      {/* «Выберите размер» — открывается, если нажали «Купить сейчас» / «Добавить в корзину» без размера */}
+      <SizeSheet
+        open={sizeSheet.open}
         product={product}
         selectedSize={selectedSize}
-        selectedColor={selectedColor}
-        isOpen={orderOpen}
-        onClose={() => setOrderOpen(false)}
-        promocode={appliedPromo ?? undefined}
-        discount={promoPercent}
-        finalPrice={finalPrice}
+        onClose={() => setSizeSheet((state) => ({ ...state, open: false }))}
+        onSelect={(size) => {
+          setSelectedSize(size);
+          setSizeSheet((state) => ({ ...state, open: false }));
+          runPurchase(sizeSheet.intent, size);
+        }}
       />
 
       {/* Fullscreen viewer */}

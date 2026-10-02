@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Heart, Menu, X, Phone, MessageCircle, Send } from "lucide-react";
+import { Search, Heart, Menu, X, Phone, MessageCircle, Send, ShoppingBag, CircleUserRound } from "lucide-react";
 import { navLinks } from "../../store-data/navigation";
 import { settings } from "../../store-data/settings";
 import { contacts } from "../../store-data/contacts";
 import { useFavorites } from "../../hooks/useFavorites";
+import { useCartCount } from "../../lib/cart";
 import { useSearch } from "../../hooks/useSearch";
 import SearchModal from "../ui/SearchModal";
 
@@ -14,6 +15,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const { count: favCount } = useFavorites();
+  const cartCount = useCartCount();
   const search = useSearch();
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function Header() {
                 <Link
                   key={link.href}
                   to={link.href}
-                  className={`relative px-3 py-2 text-sm font-medium transition-colors duration-200 rounded-lg group ${
+                  className={`relative px-3 lg:px-2 py-2 text-sm font-medium transition-colors duration-200 rounded-lg group ${
                     isActive ? "text-white" : "text-white/50 hover:text-white"
                   }`}
                 >
@@ -87,14 +89,14 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
+          {/* Actions (в диапазоне lg–xl чуть теснее, чтобы иконки корзины и профиля не вылезали за экран) */}
+          <div className="flex items-center gap-2 lg:gap-1 xl:gap-2">
             {/* Quick contacts */}
             <a
               href={settings.telegramUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 py-2 rounded-lg hover:bg-white/5"
+              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 lg:px-2 py-2 rounded-lg hover:bg-white/5"
               aria-label="Telegram"
             >
               <Send size={15} />
@@ -104,7 +106,7 @@ export default function Header() {
               href={contacts.maxUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 py-2 rounded-lg hover:bg-white/5"
+              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 lg:px-2 py-2 rounded-lg hover:bg-white/5"
               aria-label="MAX"
             >
               <MessageCircle size={15} />
@@ -112,7 +114,7 @@ export default function Header() {
             </a>
             <a
               href={`tel:${settings.phoneClean}`}
-              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 py-2 rounded-lg hover:bg-white/5"
+              className="hidden md:flex items-center gap-1.5 text-white/50 hover:text-white transition-colors text-xs px-3 lg:px-2 py-2 rounded-lg hover:bg-white/5"
               aria-label="Телефон"
             >
               <Phone size={15} />
@@ -145,6 +147,36 @@ export default function Header() {
                   {favCount}
                 </motion.span>
               )}
+            </Link>
+
+            {/* Cart (на телефоне корзина находится в нижней навигации) */}
+            <Link
+              to="/cart"
+              className="relative hidden md:flex w-9 h-9 items-center justify-center rounded-xl text-white/50 hover:text-white hover:bg-white/8 transition-all"
+              aria-label="Корзина"
+            >
+              <ShoppingBag size={18} />
+              {cartCount > 0 && (
+                <motion.span
+                  key={cartCount}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-white text-black text-[9px] font-bold rounded-full flex items-center justify-center"
+                >
+                  {cartCount > 99 ? "99+" : cartCount}
+                </motion.span>
+              )}
+            </Link>
+
+            {/* Profile */}
+            <Link
+              to="/profile"
+              className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all hover:bg-white/8 ${
+                location.pathname === "/profile" ? "text-white" : "text-white/50 hover:text-white"
+              }`}
+              aria-label="Профиль"
+            >
+              <CircleUserRound size={18} />
             </Link>
 
             {/* Mobile menu */}
