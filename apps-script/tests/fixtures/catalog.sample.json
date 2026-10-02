@@ -1,0 +1,774 @@
+[
+ {
+  "id": "537424389",
+  "article": "537424389",
+  "name": "Cабо",
+  "brand": "CROCS",
+  "category": "Шлепанцы",
+  "description": "Описание товара.",
+  "price": 1890,
+  "gender": "Унисекс",
+  "images": [
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/1.webp",
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/2.webp",
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "36-37",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 1
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/537424389/detail.aspx"
+ },
+ {
+  "id": "537424389",
+  "article": "537424389",
+  "name": "Cабо",
+  "brand": "CROCS",
+  "category": "Шлепанцы",
+  "description": "Описание товара.",
+  "price": 1890,
+  "gender": "Унисекс",
+  "images": [
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/1.webp",
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/2.webp",
+   "https://basket-28.wbbasket.ru/vol5374/part537424/537424389/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "37-38",
+    "status": "available",
+    "stockOffline": 2,
+    "stockWB": 2
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/537424389/detail.aspx"
+ },
+ {
+  "id": "536953515",
+  "article": "536953515",
+  "name": "Cабо",
+  "brand": "CROCS",
+  "category": "Шлепанцы",
+  "description": "Описание товара.",
+  "price": 1490,
+  "gender": "Унисекс",
+  "images": [
+   "https://basket-28.wbbasket.ru/vol5369/part536953/536953515/images/big/1.webp",
+   "https://basket-28.wbbasket.ru/vol5369/part536953/536953515/images/big/2.webp",
+   "https://basket-28.wbbasket.ru/vol5369/part536953/536953515/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "40",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 1
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/536953515/detail.aspx"
+ },
+ {
+  "id": "88",
+  "article": "28604349",
+  "name": "Тапочки домашние",
+  "brand": "",
+  "category": "Шлепанцы",
+  "description": "Описание товара.",
+  "price": 699,
+  "gender": "Женский",
+  "images": [
+   "https://mow-basket-cdn-11.geobasket.ru/vol286/part28604/28604349/images/hq/1.webp"
+  ],
+  "sizes": [
+   {
+    "value": "38",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "89",
+  "article": "365083242",
+  "name": "Топ вечерний с вырезом",
+  "brand": "",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 799,
+  "gender": "Женский",
+  "images": [
+   "https://mow-basket-cdn-44.geobasket.ru/vol3650/part365083/365083242/images/big/1.webp"
+  ],
+  "sizes": [
+   {
+    "value": "48",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "90",
+  "article": "177156061",
+  "name": "Лонгслив базовый в рубчик с длинным рукавом",
+  "brand": "",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 799,
+  "gender": "Женский",
+  "images": [
+   "https://mow-basket-cdn-03.geobasket.ru/vol1771/part177156/177156061/images/big/1.webp"
+  ],
+  "sizes": [
+   {
+    "value": "L",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "91",
+  "article": "63753956",
+  "name": "Станция Dobe для джойстика контроллера PS4 Pro/Slim",
+  "brand": "",
+  "category": "Товары",
+  "description": "Описание товара.",
+  "price": 499,
+  "gender": "Унисекс",
+  "images": [
+   "https://mow-basket-cdn-58.geobasket.ru/vol637/part63753/63753956/images/big/1.webp"
+  ],
+  "sizes": [
+   {
+    "value": "1шт",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "283",
+  "article": "431911182",
+  "name": "Спортивная футболка для фитнеса",
+  "brand": "",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 799,
+  "gender": "Женский",
+  "images": [
+   "https://mow-basket-cdn-44.geobasket.ru/vol4319/part431911/431911182/images/big/1.webp"
+  ],
+  "sizes": [
+   {
+    "value": "XL",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "284",
+  "article": "GSW008409-1",
+  "name": "Молочный кардиган с контрастными линиями",
+  "brand": "",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 699,
+  "gender": "Девочки",
+  "images": [
+   "https://storage-cdn10.gloria-jeans.ru/pictures/Molocnyj-kardigan-s-kontrastnymi-liniami_GSW008409-1_01_1200Wx1200H.webp?q=907769"
+  ],
+  "sizes": [
+   {
+    "value": "140",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "9001",
+  "article": "TEST-9001",
+  "name": "TEST Куртка зимняя",
+  "brand": "TESTBRAND",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 3462,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/1.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/2.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "M",
+    "status": "available",
+    "stockOffline": 3,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": true,
+  "oldPrice": 4990,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9001/detail.aspx"
+ },
+ {
+  "id": "9001",
+  "article": "TEST-9001",
+  "name": "TEST Куртка зимняя",
+  "brand": "TESTBRAND",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 3462,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/1.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/2.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "L",
+    "status": "low",
+    "stockOffline": 2,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": true,
+  "oldPrice": 4990,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9001/detail.aspx"
+ },
+ {
+  "id": "9001",
+  "article": "TEST-9001",
+  "name": "TEST Куртка зимняя",
+  "brand": "TESTBRAND",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 3462,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/1.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/2.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "XL",
+    "status": "available",
+    "stockOffline": 0,
+    "stockWB": 4
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": true,
+  "oldPrice": 4990,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9001/detail.aspx"
+ },
+ {
+  "id": "9001",
+  "article": "TEST-9001",
+  "name": "TEST Куртка зимняя",
+  "brand": "TESTBRAND",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 3462,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/1.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/2.webp",
+   "https://basket-10.wbbasket.ru/vol9001/part9001/9001/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "S",
+    "status": "unavailable",
+    "stockOffline": 0,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": true,
+  "oldPrice": 4990,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9001/detail.aspx"
+ },
+ {
+  "id": "9002",
+  "article": "TEST-9002",
+  "name": "TEST Кроссовки беговые",
+  "brand": "RUNNER",
+  "category": "Кроссовки",
+  "description": "Описание товара.",
+  "price": 5990,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/1.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/2.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "42",
+    "status": "available",
+    "stockOffline": 5,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9002/detail.aspx"
+ },
+ {
+  "id": "9002",
+  "article": "TEST-9002",
+  "name": "TEST Кроссовки беговые",
+  "brand": "RUNNER",
+  "category": "Кроссовки",
+  "description": "Описание товара.",
+  "price": 5990,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/1.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/2.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "43",
+    "status": "available",
+    "stockOffline": 1,
+    "stockWB": 0
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9002/detail.aspx"
+ },
+ {
+  "id": "9002",
+  "article": "TEST-9002",
+  "name": "TEST Кроссовки беговые",
+  "brand": "RUNNER",
+  "category": "Кроссовки",
+  "description": "Описание товара.",
+  "price": 5990,
+  "gender": "Мужской",
+  "images": [
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/1.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/2.webp",
+   "https://basket-11.wbbasket.ru/vol9002/part9002/9002/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "44",
+    "status": "available",
+    "stockOffline": 0,
+    "stockWB": 2
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9002/detail.aspx"
+ },
+ {
+  "id": "9003",
+  "article": "TEST-9003",
+  "name": "TEST Аксессуар без размеров",
+  "brand": "",
+  "category": "Товары",
+  "description": "Описание товара.",
+  "price": 250,
+  "gender": "Унисекс",
+  "images": [
+   "https://basket-12.wbbasket.ru/vol9003/part9003/9003/images/big/1.webp",
+   "https://basket-12.wbbasket.ru/vol9003/part9003/9003/images/big/2.webp",
+   "https://basket-12.wbbasket.ru/vol9003/part9003/9003/images/big/3.webp"
+  ],
+  "sizes": [],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "9004",
+  "article": "TEST-9004",
+  "name": "TEST Футболка в двух цветах",
+  "brand": "COLORS",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 1200,
+  "gender": "Унисекс",
+  "images": [
+   "https://basket-13.wbbasket.ru/vol9004/part9004/9004/images/big/1.webp",
+   "https://basket-13.wbbasket.ru/vol9004/part9004/9004/images/big/2.webp",
+   "https://basket-13.wbbasket.ru/vol9004/part9004/9004/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "M",
+    "status": "available",
+    "stockOffline": 4,
+    "stockWB": 0
+   }
+  ],
+  "colors": [
+   {
+    "name": "Чёрный",
+    "code": "#000000",
+    "hex": "#000000"
+   },
+   {
+    "name": "Белый",
+    "code": "#ffffff",
+    "hex": "#ffffff"
+   }
+  ],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": ""
+ },
+ {
+  "id": "9005",
+  "article": "TEST-9005",
+  "name": "TEST Только на Wildberries",
+  "brand": "WBONLY",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 2100,
+  "gender": "Женский",
+  "images": [
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/1.webp",
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/2.webp",
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "M",
+    "status": "available",
+    "stockOffline": 0,
+    "stockWB": 3
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9005/detail.aspx"
+ },
+ {
+  "id": "9005",
+  "article": "TEST-9005",
+  "name": "TEST Только на Wildberries",
+  "brand": "WBONLY",
+  "category": "Одежда",
+  "description": "Описание товара.",
+  "price": 2100,
+  "gender": "Женский",
+  "images": [
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/1.webp",
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/2.webp",
+   "https://basket-14.wbbasket.ru/vol9005/part9005/9005/images/big/3.webp"
+  ],
+  "sizes": [
+   {
+    "value": "L",
+    "status": "available",
+    "stockOffline": 0,
+    "stockWB": 1
+   }
+  ],
+  "colors": [],
+  "material": "",
+  "season": "",
+  "rating": 5,
+  "reviewsCount": 0,
+  "available": true,
+  "offlineOnly": false,
+  "wbOnly": false,
+  "bothAvailable": false,
+  "isNew": false,
+  "isFeatured": false,
+  "isSale": false,
+  "oldPrice": 0,
+  "discount": 0,
+  "tags": [],
+  "wbUrl": "https://www.wildberries.ru/catalog/9005/detail.aspx"
+ }
+]
