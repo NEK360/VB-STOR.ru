@@ -74,4 +74,33 @@ export const analytics = {
     // window.gtag?.("event", "click_contact", { method });
     console.debug("[Analytics] clickContact:", method);
   },
+
+  // Promo code applied (раньше метод вызывался на карточке товара, но не был определён)
+  applyPromo: (code: string, success: boolean) => {
+    // window.gtag?.("event", "apply_promo", { promo_code: code, success });
+    console.debug("[Analytics] applyPromo:", code, success);
+  },
+
+  // Cart
+  addToCart: (productId: string, productName: string, price: number) => {
+    // window.gtag?.("event", "add_to_cart", { items: [{ item_id: productId, item_name: productName, price }] });
+    // window.fbq?.("track", "AddToCart", { content_ids: [productId], value: price, currency: "RUB" });
+    console.debug("[Analytics] addToCart:", productId, productName, price);
+  },
+
+  removeFromCart: (productId: string) => {
+    // window.gtag?.("event", "remove_from_cart", { items: [{ item_id: productId }] });
+    console.debug("[Analytics] removeFromCart:", productId);
+  },
+
+  // Checkout
+  beginCheckout: (itemsCount: number, total: number) => {
+    // window.gtag?.("event", "begin_checkout", { value: total, currency: "RUB" });
+    console.debug("[Analytics] beginCheckout:", itemsCount, total);
+  },
+
+  purchase: (orderId: string, total: number) => {
+    // window.gtag?.("event", "purchase", { transaction_id: orderId, value: total, currency: "RUB" });
+    console.debug("[Analytics] purchase:", orderId, total);
+  },
 };
