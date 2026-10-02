@@ -3,7 +3,7 @@ name: Deploy VB Store to Hostiman
 on:
   push:
     branches:
-      - fix/structure-and-functionality
+      - arena/01a0fc79-vb-stor-ru
 
 jobs:
   build-and-deploy:
