@@ -263,13 +263,14 @@
       var post = await checkPost(url);
 
       var probeGet = null, probePost = null;
-      if (!cat.reached || !post.reached) {
+      if (!cat.reached || (!post.reached && !post.timeout)) {
         var step3 = makeStep("3. Доходит ли запрос до Google");
         if (!cat.reached) probeGet = await probe(withParam(url, "action=vbPing&vbprobe=1&_=" + Date.now()));
         if (!post.reached && !post.timeout) probePost = await probe(withParam(url, "vbprobe=1"), POST_INIT());
         log("[3] достижимость без чтения ответа: GET=" + probeGet + ", POST=" + probePost);
         var reachedAny = probeGet === true || probePost === true;
         if (reachedAny) step3.set("warn", "Запрос до Google доходит, но браузеру не отдаётся читаемый ответ: Google вернул страницу ошибки без разрешения для браузера.");
+        else if (cat.ok) step3.set("bad", "POST-запрос до Google не доходит, хотя каталог (GET) открывается: такие запросы блокирует расширение браузера, антивирус или сеть.");
         else step3.set("bad", "Запрос не доходит до Google: нет связи со script.google.com из этого браузера.");
         if (!post.reached && post.step) post.step.set("bad", reachedAny
           ? "Браузер не смог прочитать ответ: вместо JSON вернулась страница ошибки Google."
@@ -301,7 +302,22 @@
           "Найдите последнюю строку doPost со статусом «Не выполнено» или откройте журнал выполнения: там строка «VBStoreApi unexpected error» с текстом ошибки.",
           "Скопируйте её и пришлите разработчику вместе с техническим отчётом ниже."
         ]);
-      } else if (cat.ok && !post.reached && (probePost === true || probeGet === true || probePost === null)) {
+      } else if (cat.ok && !post.reached && post.timeout) {
+        verdict("warn", "Сервер не ответил за 30 секунд", [
+          "Запрос ушёл, но скрипт не успел ответить. Бывает при «холодном старте» Google или если выполнение зависло."
+        ], [
+          "Нажмите «Проверить ещё раз» — обычно со второго раза скрипт отвечает быстро.",
+          "Если повторяется: откройте в редакторе «Выполнения» и посмотрите, не висят ли выполнения doPost и сколько они длятся."
+        ]);
+      } else if (cat.ok && !post.reached && probePost === false) {
+        verdict("bad", "Каталог открывается, а запросы входа и заказов до Google не доходят", [
+          "Такое бывает, когда POST-запросы к script.google.com блокирует расширение браузера (блокировщик рекламы, «защита»), антивирус или сеть."
+        ], [
+          "Откройте эту страницу в режиме инкогнито или в другом браузере.",
+          "Отключите блокировщик рекламы и VPN для этой страницы.",
+          "Попробуйте другую сеть (например, мобильный интернет вместо Wi-Fi)."
+        ]);
+      } else if (cat.ok && !post.reached && probePost === true) {
         verdict("bad", "На запросы сайта отвечает страница ошибки — скорее всего, опубликована старая версия", [
           "Адрес живой и отдаёт каталог, а на запрос регистрации отвечает страницей ошибки Google (не JSON). Чаще всего это значит, что по этому адресу работает СТАРАЯ опубликованная версия скрипта без doPost: «Сохранить» и запуск функций в редакторе веб-приложение не обновляют."
         ], STALE_STEPS);
