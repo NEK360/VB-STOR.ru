@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="data:,">
+  <title>VB STORE — проверка серверной части</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+      --bg: #0b0b0c; --card: #151517; --line: #2a2a2e; --text: #f2f2f3; --muted: #9a9aa2;
+      --ok: #34d399; --warn: #fbbf24; --bad: #fb7185; --btn: #f2f2f3; --btn-text: #0b0b0c;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f6f7; --card: #ffffff; --line: #dcdce1; --text: #16161a; --muted: #62626b;
+        --ok: #059669; --warn: #b45309; --bad: #e11d48; --btn: #16161a; --btn-text: #ffffff;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 20px 16px 56px; }
+    h1 { font-size: 22px; line-height: 1.25; margin: 8px 0 8px; }
+    p { margin: 0 0 12px; }
+    .lead { color: var(--muted); }
+    label { display: block; font-weight: 600; margin: 20px 0 6px; }
+    input[type=url] { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+                      background: var(--card); color: var(--text); font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hint { color: var(--muted); font-size: 14px; margin-top: 6px; }
+    button { font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 13px 18px; cursor: pointer;
+             background: var(--btn); color: var(--btn-text); }
+    button[disabled] { opacity: .55; cursor: progress; }
+    button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    ol.steps { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 10px; }
+    .step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 12px 14px; border: 1px solid var(--line);
+            border-radius: 14px; background: var(--card); }
+    .step .icon { position: relative; width: 24px; height: 24px; border-radius: 50%; margin-top: 1px;
+                  border: 2px solid var(--muted); }
+    .step .icon::before, .step .icon::after { content: ""; position: absolute; left: 50%; top: 50%; }
+    .step .title { font-weight: 600; }
+    .step .msg { color: var(--muted); font-size: 15px; overflow-wrap: anywhere; }
+    .step.ok .icon { border-color: var(--ok); }
+    .step.ok .icon::before { width: 5px; height: 10px; border: solid var(--ok); border-width: 0 2px 2px 0;
+                             transform: translate(-50%, -62%) rotate(45deg); }
+    .step.bad .icon { border-color: var(--bad); }
+    .step.bad .icon::before, .step.bad .icon::after { width: 12px; height: 2px; margin: -1px 0 0 -6px;
+                                                      background: var(--bad); border-radius: 1px; }
+    .step.bad .icon::before { transform: rotate(45deg); }
+    .step.bad .icon::after { transform: rotate(-45deg); }
+    .step.warn .icon { border-color: var(--warn); }
+    .step.warn .icon::before { width: 2px; height: 8px; margin: -7px 0 0 -1px; background: var(--warn); border-radius: 1px; }
+    .step.warn .icon::after { width: 3px; height: 3px; margin: 3px 0 0 -1.5px; background: var(--warn); border-radius: 50%; }
+    .step.run .icon { border-top-color: transparent; animation: vb-spin .9s linear infinite; }
+    @keyframes vb-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .step.run .icon { animation: none; } }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .verdict { margin-top: 22px; padding: 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+    .verdict h2 { font-size: 18px; margin: 0 0 8px; }
+    .verdict.ok { border-color: var(--ok); }   .verdict.warn { border-color: var(--warn); }   .verdict.bad { border-color: var(--bad); }
+    .verdict ol { margin: 8px 0 12px; padding-left: 22px; }
+    .verdict li { margin-bottom: 6px; }
+    details { margin-top: 22px; }
+    summary { cursor: pointer; color: var(--muted); }
+    textarea { width: 100%; min-height: 180px; margin-top: 10px; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+               background: var(--card); color: var(--text); font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--card); border: 1px solid var(--line);
+           padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Проверка серверной части магазина</h1>
+  <p class="lead">Страница отправляет в ваш Google-скрипт те же запросы, что и сайт, и показывает, на каком шаге
+    что-то не так. Ничего не записывается: для проверки используется запрос «Кто я?» с заведомо неверным ключом.
+    Страница нужна только владельцу сайта — покупатели её не видят.</p>
+
+  <label for="url">Адрес веб-приложения (оканчивается на <code>/exec</code>)</label>
+  <input id="url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+         value="https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec">
+  <p class="hint">Это адрес, который сейчас прописан на сайте (<code>src/lib/config.ts</code>). Если вы создавали новое
+    развёртывание, вставьте сюда его адрес и проверьте.</p>
+
+  <div class="row"><button id="run" type="button">Проверить</button></div>
+
+  <ol class="steps" id="steps" aria-live="polite"></ol>
+
+  <section id="verdict" class="verdict" hidden>
+    <h2 id="vtitle"></h2>
+    <div id="vbody"></div>
+  </section>
+
+  <details id="more" hidden>
+    <summary>Технический отчёт (можно скопировать и прислать разработчику)</summary>
+    <textarea id="report" readonly spellcheck="false"></textarea>
+    <div class="row"><button id="copy" class="ghost" type="button">Скопировать отчёт</button></div>
+  </details>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = { url: $("url"), run: $("run"), steps: $("steps"), verdict: $("verdict"), vtitle: $("vtitle"),
+              vbody: $("vbody"), more: $("more"), report: $("report"), copy: $("copy") };
+  var lines = [];
+
+  function log(text) { lines.push(text); els.report.value = lines.join("\n"); }
+
+  function snippet(text) {
+    return String(text || "").replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+  }
+
+  /** fetch с таймаутом: никогда не бросает исключение, а возвращает описание результата. */
+  function request(url, init, timeoutMs) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 30000);
+    var started = Date.now();
+    var options = init || {};
+    options.signal = controller.signal;
+    return fetch(url, options).then(function (res) {
+      return res.text().then(function (text) {
+        var json = null;
+        try { json = JSON.parse(text); } catch (e) { /* не JSON */ }
+        return { reached: true, status: res.status, type: res.type, text: text, json: json, ms: Date.now() - started };
+      });
+    }, function (err) {
+      return { reached: false, timeout: controller.signal.aborted, error: String((err && err.message) || err), ms: Date.now() - started };
+    }).then(function (result) { clearTimeout(timer); return result; });
+  }
+
+  /** Проверка «дошёл ли запрос вообще»: ответ не читаем (no-cors), но сетевая ошибка видна. */
+  function probe(url, init) {
+    var options = init || {};
+    options.mode = "no-cors";
+    return request(url, options, 25000).then(function (r) { return r.reached; });
+  }
+
+  function makeStep(title) {
+    var li = document.createElement("li");
+    var icon = document.createElement("span");
+    var box = document.createElement("div");
+    var head = document.createElement("div");
+    var msg = document.createElement("div");
+    var sr = document.createElement("span");
+    li.className = "step run";
+    icon.className = "icon"; icon.setAttribute("aria-hidden", "true");
+    sr.className = "sr";
+    head.className = "title"; head.textContent = title; head.appendChild(sr);
+    msg.className = "msg"; msg.textContent = "Проверяю…";
+    box.appendChild(head); box.appendChild(msg); li.appendChild(icon); li.appendChild(box);
+    els.steps.appendChild(li);
+    var words = { ok: " — успешно", warn: " — внимание", bad: " — ошибка", run: "" };
+    return { set: function (state, text) { li.className = "step " + state; msg.textContent = text; sr.textContent = words[state] || ""; } };
+  }
+
+  function verdict(kind, title, paragraphs, steps) {
+    els.verdict.hidden = false;
+    els.verdict.className = "verdict " + kind;
+    els.vtitle.textContent = title;
+    els.vbody.textContent = "";
+    (paragraphs || []).forEach(function (t) {
+      var p = document.createElement("p"); p.textContent = t; els.vbody.appendChild(p);
+    });
+    if (steps && steps.length) {
+      var ol = document.createElement("ol");
+      steps.forEach(function (t) { var li = document.createElement("li"); li.textContent = t; ol.appendChild(li); });
+      els.vbody.appendChild(ol);
+    }
+  }
+
+  var POST_BODY = JSON.stringify({ action: "me", token: "vb-check" });
+  var POST_INIT = function () {
+    return { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: POST_BODY, redirect: "follow" };
+  };
+
+  function withParam(url, query) { return url + (url.indexOf("?") === -1 ? "?" : "&") + query; }
+
+  async function checkCatalog(url) {
+    var step = makeStep("1. Адрес отвечает (каталог товаров)");
+    var r = await request(withParam(url, "action=catalog&_=" + Date.now()), { redirect: "follow" });
+    log("[1] GET ?action=catalog -> " + (r.reached ? "HTTP " + r.status + ", " + r.ms + " мс, JSON: " + (r.json !== null) : "нет ответа (" + r.error + ")"));
+    if (!r.reached) {
+      step.set("bad", r.timeout ? "Адрес не ответил за 30 секунд." : "Браузер не получил ответ от адреса.");
+      return { reached: false };
+    }
+    var rows = Array.isArray(r.json) ? r.json : (r.json && Array.isArray(r.json.rows) ? r.json.rows : null);
+    if (rows) {
+      step.set("ok", "Каталог получен: " + rows.length + " строк, " + r.ms + " мс. Адрес верный, доступ «Все» включён.");
+      return { reached: true, ok: true };
+    }
+    if (r.json !== null) {
+      step.set("warn", "Адрес отвечает, но это не каталог: " + snippet(r.text));
+      return { reached: true, ok: false };
+    }
+    step.set("bad", "Адрес вернул не данные, а страницу: «" + snippet(r.text) + "». Обычно это страница входа в Google — у веб-приложения должен быть доступ «Все».");
+    return { reached: true, ok: false, html: true };
+  }
+
+  async function checkPost(url) {
+    var step = makeStep("2. Серверная часть (регистрация, вход, заказы)");
+    var r = await request(url, POST_INIT());
+    log("[2] POST {action:me, token:vb-check} -> " + (r.reached ? "HTTP " + r.status + ", " + r.ms + " мс, JSON: " + (r.json !== null) + ", ответ: " + snippet(r.text).slice(0, 120) : "нет ответа (" + r.error + ")"));
+    if (!r.reached) {
+      step.set("bad", r.timeout ? "Сервер не ответил за 30 секунд." : "Браузер не смог прочитать ответ сервера. Выясняю причину…");
+      return { reached: false, step: step, timeout: r.timeout };
+    }
+    var code = r.json && r.json.error && r.json.error.code;
+    if (r.json && r.json.ok === false && code === "UNAUTHORIZED") {
+      step.set("ok", "Сервер ответил «нужно войти» (UNAUTHORIZED) за " + r.ms + " мс — это правильный ответ на проверочный запрос. Серверная часть подключена и опубликована.");
+      return { reached: true, ok: true };
+    }
+    if (r.json && code === "UNKNOWN_ACTION") {
+      step.set("bad", "В скрипте есть doPost, но запрос не дошёл до расширения (ответ UNKNOWN_ACTION).");
+      return { reached: true, ok: false, unknownAction: true };
+    }
+    if (r.json) {
+      step.set("warn", "Сервер ответил неожиданно: " + snippet(r.text) + (code ? " (код " + code + ")" : ""));
+      return { reached: true, ok: false, code: code };
+    }
+    step.set("bad", "Сервер вернул не JSON, а страницу: «" + snippet(r.text) + "».");
+    return { reached: true, ok: false, html: true };
+  }
+
+  var STALE_STEPS = [
+    "В редакторе Apps Script: Начать развертывание (кнопка вверху справа) → Управление развертываниями.",
+    "Выберите активное развёртывание и нажмите значок карандаша (изменить).",
+    "В списке «Версия» выберите «Новая версия» и нажмите «Развернуть». Не создавайте «Новое развёртывание»: у него будет другой адрес.",
+    "Вернитесь сюда и нажмите «Проверить» ещё раз.",
+    "Если не помогло: проверьте, что в проекте есть doPost (шаг 2 инструкции), и откройте в редакторе раздел «Выполнения» — после проверки там должна появиться строка doPost; если она со статусом «Не выполнено», в ней текст ошибки (про разрешения — запустите vbStoreSetup в редакторе, подтвердите доступ и опубликуйте новую версию)."
+  ];
+
+  var running = false;
+
+  async function run() {
+    if (running) return;
+    var url = String(els.url.value || "").trim();
+    els.steps.textContent = "";
+    els.verdict.hidden = true;
+    lines = []; els.more.hidden = false; els.report.value = "";
+    log("Проверка: " + new Date().toLocaleString("ru-RU"));
+    log("Адрес: " + url);
+    log("Браузер: " + navigator.userAgent);
+
+    if (!/^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[^/]+\/(exec|dev)$/.test(url)) {
+      var bad = makeStep("0. Адрес");
+      bad.set("bad", "Это не похоже на адрес веб-приложения Apps Script. Он выглядит так: https://script.google.com/macros/s/…/exec");
+      verdict("bad", "Проверьте адрес", ["Скопируйте «URL веб-приложения» в редакторе: Начать развертывание → Управление развертываниями."]);
+      return;
+    }
+    if (/\/dev$/.test(url)) {
+      makeStep("0. Адрес").set("warn", "Адрес оканчивается на /dev — это тестовый адрес (виден только вам). Для сайта нужен адрес, оканчивающийся на /exec.");
+    }
+
+    running = true; els.run.disabled = true; els.run.textContent = "Проверяю…";
+    try {
+      var cat = await checkCatalog(url);
+      var post = await checkPost(url);
+
+      var probeGet = null, probePost = null;
+      if (!cat.reached || !post.reached) {
+        var step3 = makeStep("3. Доходит ли запрос до Google");
+        if (!cat.reached) probeGet = await probe(withParam(url, "action=vbPing&vbprobe=1&_=" + Date.now()));
+        if (!post.reached && !post.timeout) probePost = await probe(withParam(url, "vbprobe=1"), POST_INIT());
+        log("[3] достижимость без чтения ответа: GET=" + probeGet + ", POST=" + probePost);
+        var reachedAny = probeGet === true || probePost === true;
+        if (reachedAny) step3.set("warn", "Запрос до Google доходит, но браузеру не отдаётся читаемый ответ: Google вернул страницу ошибки без разрешения для браузера.");
+        else step3.set("bad", "Запрос не доходит до Google: нет связи со script.google.com из этого браузера.");
+        if (!post.reached && post.step) post.step.set("bad", reachedAny
+          ? "Браузер не смог прочитать ответ: вместо JSON вернулась страница ошибки Google."
+          : "Нет ответа от сервера.");
+      }
+
+      if (cat.ok && post.ok) {
+        verdict("ok", "Всё работает", [
+          "Адрес живой, доступ «Все» включён, серверная часть отвечает. Регистрация, вход и заказы должны работать.",
+          "Если на сайте ошибка осталась — обновите страницу сайта без кэша (Ctrl+F5, на телефоне — закройте и откройте вкладку) и попробуйте ещё раз."
+        ]);
+      } else if (cat.ok && post.unknownAction) {
+        verdict("bad", "doPost не вызывает дополнение", [
+          "В проекте есть функция doPost, но она не передаёт запрос в vbStoreHandlePost_. Либо опубликована старая версия кода."
+        ], [
+          "Откройте doPost и добавьте в самое его начало две строки: var vbResponse = vbStoreHandlePost_(e); if (vbResponse) return vbResponse;",
+          "Начать развертывание → Управление развертываниями → значок карандаша → Версия: «Новая версия» → Развернуть.",
+          "Вернитесь сюда и нажмите «Проверить» ещё раз."
+        ]);
+      } else if (cat.ok && post.html) {
+        verdict("bad", "На запрос регистрации скрипт отвечает страницей ошибки", [
+          "Адрес живой и отдаёт каталог, но вместо данных на запросы входа и заказов приходит страница Google (её текст — в шаге 2). Чаще всего это значит, что по этому адресу работает СТАРАЯ опубликованная версия скрипта без doPost: «Сохранить» и запуск функций в редакторе веб-приложение не обновляют."
+        ], STALE_STEPS);
+      } else if (cat.ok && post.code === "SERVER_ERROR") {
+        verdict("bad", "Серверная часть получила запрос, но упала при обработке", [
+          "Версия опубликована правильно — запрос дошёл до расширения, но внутри случилась непредвиденная ошибка."
+        ], [
+          "В редакторе Apps Script откройте «Выполнения» (список слева).",
+          "Найдите последнюю строку doPost со статусом «Не выполнено» или откройте журнал выполнения: там строка «VBStoreApi unexpected error» с текстом ошибки.",
+          "Скопируйте её и пришлите разработчику вместе с техническим отчётом ниже."
+        ]);
+      } else if (cat.ok && !post.reached && (probePost === true || probeGet === true || probePost === null)) {
+        verdict("bad", "На запросы сайта отвечает страница ошибки — скорее всего, опубликована старая версия", [
+          "Адрес живой и отдаёт каталог, а на запрос регистрации отвечает страницей ошибки Google (не JSON). Чаще всего это значит, что по этому адресу работает СТАРАЯ опубликованная версия скрипта без doPost: «Сохранить» и запуск функций в редакторе веб-приложение не обновляют."
+        ], STALE_STEPS);
+      } else if (!cat.reached && probeGet === true) {
+        verdict("bad", "Адрес существует, но ответ браузеру закрыт", [
+          "Проверьте у веб-приложения: «Выполнять от имени» — Я, «У кого есть доступ» — Все. И что адрес оканчивается на /exec и совпадает с адресом в «Управление развертываниями»."
+        ]);
+      } else if (!cat.reached && probeGet === false && (probePost === false || probePost === null)) {
+        verdict("bad", "Нет связи со script.google.com", [
+          "Браузер не может достучаться до Google. Выключите VPN или блокировщик рекламы для этой страницы, попробуйте другой браузер или другую сеть."
+        ]);
+      } else if (cat.html) {
+        verdict("bad", "Адрес вернул страницу входа или ошибки", [
+          "У веб-приложения должен быть доступ «Все» (не «Только я» и не «Все, у кого есть аккаунт Google»). Измените его в «Управление развертываниями» (значок карандаша) и опубликуйте новую версию."
+        ]);
+      } else {
+        verdict("warn", "Результат неоднозначный", [
+          "Откройте «Технический отчёт» ниже, скопируйте его и пришлите разработчику."
+        ]);
+      }
+    } finally {
+      running = false; els.run.disabled = false; els.run.textContent = "Проверить ещё раз";
+    }
+  }
+
+  els.run.addEventListener("click", run);
+  els.url.addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+  els.copy.addEventListener("click", function () {
+    els.report.focus(); els.report.select();
+    var done = function () { els.copy.textContent = "Скопировано"; setTimeout(function () { els.copy.textContent = "Скопировать отчёт"; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(els.report.value).then(done, function () { document.execCommand("copy"); done(); });
+    else { document.execCommand("copy"); done(); }
+  });
+})();
+</script>
+</body>
+</html>
