@@ -108,7 +108,10 @@ export function createGasEnv(options = {}) {
   const cache = new Map();
   const mails = [];
   let clockOffsetMs = 0;
-  let lockHeld = false;
+  let lockHeld = false;   // держит ли блокировку ТЕКУЩЕЕ выполнение (так ловим вложенные блокировки)
+  let lockBusy = false;   // держит ли её ДРУГОЙ процесс (например, синхронизация каталога по триггеру)
+  const logs = [];        // всё, что скрипт пишет через console.* и Logger.log
+  const capture = (...args) => void logs.push(args.map(String).join(" "));
   let catalogRows = options.catalogRows ?? [];
   let catalogFails = false;
 
@@ -121,8 +124,8 @@ export function createGasEnv(options = {}) {
   }
 
   const sandbox = {
-    console,
-    Logger: { log() {} },
+    console: { log: capture, error: capture, warn: capture, info: capture },
+    Logger: { log: capture },
     Date: FakeDate,
     Utilities: {
       DigestAlgorithm: { SHA_256: "SHA_256" },
@@ -156,9 +159,15 @@ export function createGasEnv(options = {}) {
     },
     LockService: {
       getScriptLock: () => ({
-        waitLock: () => {
+        waitLock: (ms) => {
+          if (lockBusy) throw new Error(`Lock timeout: another process was holding the lock for too long (${ms} ms)`);
           if (lockHeld) throw new Error("Вложенная блокировка: Apps Script так не умеет");
           lockHeld = true;
+        },
+        tryLock: () => {
+          if (lockBusy || lockHeld) return false;
+          lockHeld = true;
+          return true;
         },
         releaseLock: () => { lockHeld = false; },
       }),
@@ -166,6 +175,7 @@ export function createGasEnv(options = {}) {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => spreadsheet,
       openById: () => spreadsheet,
+      flush: () => {},
     },
     ContentService: {
       MimeType: { JSON: "JSON" },
@@ -219,6 +229,10 @@ export function createGasEnv(options = {}) {
         .getValues()
         .map((values) => Object.fromEntries(headers.map((h, i) => [h, values[i]])));
     },
+    logs,
+    /** Другой процесс занял общую блокировку скрипта (до releaseHeldLock) */
+    holdLock() { lockBusy = true; },
+    releaseHeldLock() { lockBusy = false; },
     setCatalog(rows) { catalogRows = rows; },
     breakCatalog(value = true) { catalogFails = value; },
     advanceClock(ms) { clockOffsetMs += ms; },

@@ -548,3 +548,73 @@ describe("совместимость с существующим скрипто�
     assert.equal(row.status, "Новый");
   });
 });
+
+describe("Занятая блокировка и журнал выполнения", () => {
+  it("register: если блокировку надолго занял другой процесс — быстрый ответ SERVER_BUSY, а не зависание", () => {
+    env.sandbox.vbStoreSetup(); // секреты и листы уже есть — значит, ждём именно блокировку записи
+    env.holdLock();
+
+    const res = register();
+    assert.equal(res.ok, false);
+    assert.equal(res.error.code, "SERVER_BUSY");
+    assert.equal(env.rows("USERS").length, 0, "строка пользователя не должна создаться");
+    assert.ok(env.logs.some((l) => /блокировка скрипта занята/.test(l) && /register/.test(l)), env.logs.join("\n"));
+
+    env.releaseHeldLock(); // процесс закончил — та же регистрация проходит, блокировка не «залипла»
+    assert.equal(register().ok, true);
+    assert.equal(env.rows("USERS").length, 1);
+  });
+
+  it("createOrder: занятая блокировка → SERVER_BUSY, заказ не создан; повтор с тем же requestId даёт ровно один заказ", () => {
+    const { token } = session();
+    const input = orderInput();
+    env.holdLock();
+
+    const busy = createOrder(token, input);
+    assert.equal(busy.ok, false);
+    assert.equal(busy.error.code, "SERVER_BUSY");
+    assert.equal(env.rows("ORDERS").length, 0);
+
+    env.releaseHeldLock();
+    assert.equal(createOrder(token, input).ok, true);
+    assert.equal(createOrder(token, input).ok, true); // повторная отправка — тот же заказ
+    assert.equal(env.rows("ORDERS").length, 1);
+  });
+
+  it("секретов ещё нет и блокировка занята → SERVER_BUSY (без вложенного ожидания)", () => {
+    env.holdLock();
+    const res = env.call({ action: "me", token: "garbage" });
+    assert.equal(res.ok, false);
+    assert.equal(res.error.code, "SERVER_BUSY");
+    assert.ok(env.logs.some((l) => /getSecret/.test(l)), env.logs.join("\n"));
+  });
+
+  it("каждый запрос пишет в журнал действие, итог и время", () => {
+    register();
+    const line = env.logs.find((l) => l.startsWith("VBStoreApi register: ok"));
+    assert.ok(line, env.logs.join("\n"));
+    assert.match(line, /всего \d+ мс/);
+
+    login(PHONE, "wrong password");
+    assert.ok(
+      env.logs.some((l) => /^VBStoreApi login: ошибка INVALID_CREDENTIALS, всего \d+ мс/.test(l)),
+      env.logs.join("\n")
+    );
+  });
+
+  it("vbStoreSelfTest показывает скорость таблицы и состояние блокировки, ничего не меняя", () => {
+    env.sandbox.vbStoreSetup();
+    const before = JSON.stringify(env.rows("USERS"));
+    env.sandbox.vbStoreSelfTest();
+    assert.ok(
+      env.logs.some((l) => /Скорость таблицы/.test(l) && /общая блокировка скрипта: свободна/.test(l)),
+      env.logs.join("\n")
+    );
+    assert.equal(JSON.stringify(env.rows("USERS")), before);
+
+    env.logs.length = 0;
+    env.holdLock();
+    env.sandbox.vbStoreSelfTest();
+    assert.ok(env.logs.some((l) => /общая блокировка скрипта: ЗАНЯТА/.test(l)), env.logs.join("\n"));
+  });
+});

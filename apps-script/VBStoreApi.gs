@@ -56,6 +56,10 @@ var VBStoreApi = (function () {
     REGISTER_MAX_PER_HOUR: 60,
     ORDERS_MAX_PER_HOUR: 10,
 
+    // Сколько ждать общую блокировку скрипта. Если её надолго занял другой процесс проекта (например,
+    // синхронизация каталога по триггеру), покупатель быстро получит «сервер занят», а не вечную загрузку.
+    LOCK_WAIT_MS: 10000,
+
     MAX_LINES_PER_ORDER: 30,
     // Для товаров без размеров точный остаток неизвестен — это верхний предел количества
     UNKNOWN_STOCK_CAP: 10,
@@ -92,6 +96,9 @@ var VBStoreApi = (function () {
     prepaid: 'Сразу',
     on_receipt: 'При получении'
   };
+
+  // Замеры времени текущего запроса: попадают в журнал выполнения (см. logTiming_)
+  var perf_ = {};
 
   var USER_HEADERS = ['phone', 'passwordHash', 'salt', 'createdAt', 'lastLoginAt', 'sessionVersion'];
   var USER_FORMATS = {
@@ -190,8 +197,7 @@ var VBStoreApi = (function () {
     var value = props.getProperty(name);
     if (value) return value;
 
-    var lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    var lock = acquireLock_('getSecret ' + name);
     try {
       value = props.getProperty(name);
       if (!value) {
@@ -285,6 +291,13 @@ var VBStoreApi = (function () {
 
   /** Находит или создаёт лист и гарантирует наличие нужных колонок (лишние колонки владельца не трогаем). */
   function ensureSheet_(name, headers) {
+    var started = Date.now();
+    var sheet = ensureSheetUntimed_(name, headers);
+    perf_.sheetMs = (perf_.sheetMs || 0) + (Date.now() - started);
+    return sheet;
+  }
+
+  function ensureSheetUntimed_(name, headers) {
     var ss = getSpreadsheet_();
     var sheet = ss.getSheetByName(name);
     if (!sheet) sheet = ss.insertSheet(name);
@@ -329,8 +342,11 @@ var VBStoreApi = (function () {
     var rowIndex = sheet.getLastRow() + 1;
     var range = sheet.getRange(rowIndex, 1, 1, width);
     // Формат задаём ДО записи: так «+79181234567» остаётся текстом, а не превращается в число
+    var writeStarted = Date.now();
     range.setNumberFormats([numberFormats]);
     range.setValues([values]);
+    SpreadsheetApp.flush(); // дожидаемся фактической записи — так время «запись» в журнале настоящее
+    perf_.writeMs = (perf_.writeMs || 0) + (Date.now() - writeStarted);
     return rowIndex;
   }
 
@@ -351,9 +367,26 @@ var VBStoreApi = (function () {
     return 0;
   }
 
-  function withLock_(fn) {
+  // Берём общую блокировку скрипта, но не дольше LOCK_WAIT_MS. Блокировка общая для ВСЕГО проекта: если её
+  // держит другое выполнение (синхронизация каталога по триггеру, зависший запуск), мы не висим молча до
+  // таймаута браузера, а сразу отвечаем SERVER_BUSY и пишем причину в журнал.
+  function acquireLock_(label) {
     var lock = LockService.getScriptLock();
-    lock.waitLock(30000);
+    var started = Date.now();
+    try {
+      lock.waitLock(CONFIG.LOCK_WAIT_MS);
+    } catch (err) {
+      console.error('VBStoreApi: блокировка скрипта занята дольше ' + CONFIG.LOCK_WAIT_MS + ' мс (' + label + '). ' +
+        'Её держит другое выполнение вашего проекта — например, синхронизация каталога по триггеру. ' +
+        String(err && err.message ? err.message : err));
+      throw new ApiError('SERVER_BUSY');
+    }
+    perf_.lockWaitMs = (perf_.lockWaitMs || 0) + (Date.now() - started);
+    return lock;
+  }
+
+  function withLock_(fn, label) {
+    var lock = acquireLock_(label || 'withLock');
     try {
       return fn();
     } finally {
@@ -414,7 +447,7 @@ var VBStoreApi = (function () {
 
       bumpCount_(globalKey, 3600);
       return issueSession_(phone, 1);
-    });
+    }, 'register');
   }
 
   function login_(body) {
@@ -850,7 +883,7 @@ var VBStoreApi = (function () {
       };
 
       return { order: order, created: true };
-    });
+    }, 'createOrder');
 
     // уведомление — уже после освобождения блокировки (отправка почты может занять секунды)
     if (result.created) notifyOwner_(result.order);
@@ -904,6 +937,8 @@ var VBStoreApi = (function () {
     }
 
     var response;
+    var started = Date.now();
+    perf_ = {};
     try {
       // секреты создаём заранее — до любых блокировок (вложенные блокировки в Apps Script не используем)
       getSecret_('TOKEN_SECRET');
@@ -912,7 +947,21 @@ var VBStoreApi = (function () {
     } catch (err) {
       response = errorResponse_(err);
     }
+    logTiming_(body.action, response, Date.now() - started);
     return jsonOut_(response);
+  }
+
+  // Одна строка в журнал на запрос: что за действие, чем кончилось и где ушло время.
+  // Смотреть: редактор Apps Script → «Выполнения» → строка doPost → журнал.
+  function logTiming_(action, response, totalMs) {
+    var parts = [
+      'VBStoreApi ' + action + ': ' + (response.ok ? 'ok' : 'ошибка ' + (response.error && response.error.code)) +
+        ', всего ' + totalMs + ' мс'
+    ];
+    if (perf_.lockWaitMs) parts.push('ожидание блокировки ' + perf_.lockWaitMs + ' мс');
+    if (perf_.sheetMs) parts.push('листы ' + perf_.sheetMs + ' мс');
+    if (perf_.writeMs) parts.push('запись ' + perf_.writeMs + ' мс');
+    try { console.log(parts.join(', ')); } catch (ignore) { /* журнал недоступен — не мешаем ответу */ }
   }
 
   /**
@@ -921,7 +970,7 @@ var VBStoreApi = (function () {
    */
   function handleGet(e) {
     if (e && e.parameter && e.parameter.action === 'vbPing') {
-      return jsonOut_({ ok: true, data: { service: 'vb-store-api', version: 1 } });
+      return jsonOut_({ ok: true, data: { service: 'vb-store-api', version: 2 } });
     }
     return null;
   }
@@ -943,7 +992,40 @@ var VBStoreApi = (function () {
     var index = buildCatalogIndex_(rows);
     var message = 'Каталог прочитан: строк ' + rows.length + ', товаров ' + Object.keys(index).length + '.';
     Logger.log(message);
+    Logger.log(measureSheet_());
     return message;
+  }
+
+  // Скорость таблицы и состояние общей блокировки — то, от чего зависит, успеют ли регистрация и заказ.
+  // Ничего не меняет: «запись» перезаписывает ячейку A1 листа USERS тем же значением.
+  function measureSheet_() {
+    var lines = [];
+    var sheet = null;
+    function time(label, fn) {
+      var started = Date.now();
+      try { fn(); lines.push(label + ' ' + (Date.now() - started) + ' мс'); }
+      catch (err) { lines.push(label + ': ОШИБКА ' + String(err && err.message ? err.message : err)); }
+    }
+    time('открытие таблицы', function () { getSpreadsheet_(); });
+    time('лист ' + CONFIG.USERS_SHEET, function () { sheet = ensureUsersSheet_(); });
+    if (sheet) {
+      time('чтение', function () { sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues(); });
+      time('запись без изменений', function () {
+        var cell = sheet.getRange(1, 1);
+        cell.setValue(cell.getValue());
+        SpreadsheetApp.flush();
+      });
+    }
+    var lock = LockService.getScriptLock();
+    var started = Date.now();
+    var got = false;
+    try { got = lock.tryLock(3000); } catch (err) { /* считаем занятой */ }
+    lines.push(got
+      ? 'общая блокировка скрипта: свободна'
+      : 'общая блокировка скрипта: ЗАНЯТА другим выполнением (ждали ' + (Date.now() - started) + ' мс) — ' +
+        'из-за этого регистрация и заказы будут отвечать «сервер занят»');
+    if (got) lock.releaseLock();
+    return 'Скорость таблицы — ' + lines.join('; ') + '.';
   }
 
   return {

@@ -17,6 +17,7 @@ const GENERIC_UNAVAILABLE =
 const MESSAGES: Record<string, string> = {
   NETWORK: "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте ещё раз.",
   TIMEOUT: "Сервер слишком долго отвечает. Попробуйте ещё раз через минуту.",
+  SERVER_BUSY: "Сервер сейчас занят. Попробуйте ещё раз через минуту.",
   BAD_RESPONSE: GENERIC_UNAVAILABLE,
   SERVER_ERROR: GENERIC_UNAVAILABLE,
   CRYPTO_UNAVAILABLE:
