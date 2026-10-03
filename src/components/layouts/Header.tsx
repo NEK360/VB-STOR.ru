@@ -43,7 +43,7 @@ export default function Header() {
           scrolled ? "glass-dark shadow-lg shadow-black/20" : "bg-transparent"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 md:h-18">
+        <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16 flex items-center justify-between h-16 md:h-18">
          {/* Logo */}
 <Link to="/" className="flex items-center gap-3 group shrink-0">
   <div className="w-9 h-9 flex items-center justify-center overflow-hidden rounded-xl">

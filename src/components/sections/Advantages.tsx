@@ -4,7 +4,7 @@ import { advantages } from "../../store-data/advantages";
 export default function Advantages() {
   return (
     <section className="py-20 border-y border-white/6" aria-labelledby="advantages-title">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}

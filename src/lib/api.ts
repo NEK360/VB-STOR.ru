@@ -1,4 +1,6 @@
-import { reviews } from "../store-data/reviews";
+import { reviews, type Review } from "../store-data/reviews";
+import { products as fallbackCatalogProducts } from "../store-data/products";
+import { sortProductSizes } from "./sizes";
 
 export interface Product {
   id: string;
@@ -88,43 +90,104 @@ interface ProductPayload {
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
-const VB_API_URL =
-  "https://script.google.com/macros/s/AKfycbz2p44X5L9vqrBzHH_bXiEuNWP8P2PnuytL_l-kMxU2HGp6eyYtZR7TZtyNHkbEDWa51A/exec";
-const CACHE_KEY = "catalog_cache";
+const CACHE_KEY = "catalog_cache_v2";
 
 let cacheProducts: Product[] | null = null;
 let cachePromise: Promise<Product[]> | null = null;
 let freshAt = 0; // когда каталог последний раз был получен с сервера (а не из localStorage)
 let refreshPromise: Promise<Product[]> | null = null;
 
-function getProductRating(product: { id: string; article: string }) {
-  const productReviews = reviews.filter(
-    (r) =>
-      String(r.productId) === String(product.id) ||
-      String(r.productId) === String(product.article)
-  );
+/**
+ * Собирает все возможные идентификаторы товара (id, артикул, артикул из ссылки WB и фото WB),
+ * чтобы безошибочно сопоставлять отзывы с товарами.
+ */
+export function getProductIdentifiers(product: {
+  id?: string | number;
+  article?: string;
+  wbUrl?: string;
+  images?: string[];
+}): Set<string> {
+  const ids = new Set<string>();
 
-  if (!productReviews.length) {
+  const add = (val: unknown) => {
+    const s = String(val ?? "").trim();
+    if (s) ids.add(s);
+  };
+
+  add(product.id);
+  add(product.article);
+
+  if (product.wbUrl) {
+    const m = String(product.wbUrl).match(/catalog\/(\d+)/i);
+    if (m?.[1]) add(m[1]);
+  }
+
+  if (Array.isArray(product.images)) {
+    for (const img of product.images) {
+      if (!img) continue;
+      const m = String(img).match(/\/part\d+\/(\d+)\//i);
+      if (m?.[1]) add(m[1]);
+    }
+  }
+
+  return ids;
+}
+
+export function getReviewsForProduct(product: {
+  id?: string | number;
+  article?: string;
+  wbUrl?: string;
+  images?: string[];
+}): Review[] {
+  const ids = getProductIdentifiers(product);
+  if (ids.size === 0) return [];
+  return reviews.filter((r) => r.productId && ids.has(String(r.productId).trim()));
+}
+
+function getProductRating(product: {
+  id?: string | number;
+  article?: string;
+  wbUrl?: string;
+  images?: string[];
+  rating?: number | string;
+  reviewsCount?: number | string;
+}) {
+  const productReviews = getReviewsForProduct(product);
+
+  if (productReviews.length > 0) {
+    const rating =
+      productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
+
     return {
-      rating: 5,
-      reviewsCount: 0,
+      rating: Number(rating.toFixed(1)),
+      reviewsCount: productReviews.length,
     };
   }
 
-  const rating =
-    productReviews.reduce((sum, r) => sum + r.rating, 0) / productReviews.length;
+  const rawCount = Number(product.reviewsCount ?? 0);
+  const rawRating = Number(product.rating ?? 0);
+  if (Number.isFinite(rawCount) && rawCount > 0) {
+    return {
+      rating: Number.isFinite(rawRating) && rawRating > 0 ? Number(rawRating.toFixed(1)) : 5,
+      reviewsCount: Math.floor(rawCount),
+    };
+  }
 
   return {
-    rating: Number(rating.toFixed(1)),
-    reviewsCount: productReviews.length,
+    rating: 0,
+    reviewsCount: 0,
   };
 }
 
 function normalizeProduct(p: ProductPayload): Product {
   const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
   const reviewInfo = getProductRating({
-    id: String(p.id ?? ""),
-    article: String(p.article ?? ""),
+    id: p.id,
+    article: p.article,
+    wbUrl: p.wbUrl,
+    images,
+    rating: p.rating,
+    reviewsCount: p.reviewsCount,
   });
 
   const normalizedSizes = Array.isArray(p.sizes)
@@ -142,7 +205,14 @@ function normalizeProduct(p: ProductPayload): Product {
           stockWB: size.stockWB,
         }))
     : p.size
-      ? [{ value: String(p.size), status: "available" as const, stockOffline: undefined, stockWB: undefined }]
+      ? [
+          {
+            value: String(p.size),
+            status: "available" as const,
+            stockOffline: undefined,
+            stockWB: undefined,
+          },
+        ]
       : [];
 
   const colors = Array.isArray(p.colors)
@@ -171,7 +241,10 @@ function normalizeProduct(p: ProductPayload): Product {
     description: String(p.description ?? ""),
     price,
     oldPrice,
-    discount: oldPrice > price ? Math.round(((oldPrice - price) / oldPrice) * 100) : Number(p.discount ?? 0) || 0,
+    discount:
+      oldPrice > price
+        ? Math.round(((oldPrice - price) / oldPrice) * 100)
+        : Number(p.discount ?? 0) || 0,
     images,
     sizes: normalizedSizes,
     colors,
@@ -201,7 +274,13 @@ function getProductKey(product: Product): string {
     return `wb:${wbUrl}`;
   }
 
-  const identity = [product.name, product.brand, product.category, product.description, product.images[0] ?? ""]
+  const identity = [
+    product.name,
+    product.brand,
+    product.category,
+    product.description,
+    product.images[0] ?? "",
+  ]
     .filter(Boolean)
     .join("::")
     .toLowerCase();
@@ -209,7 +288,10 @@ function getProductKey(product: Product): string {
   return identity || `${product.name}::${product.brand}`.toLowerCase();
 }
 
-function mergeSize(existing: Product["sizes"][number], incoming: Product["sizes"][number]) {
+function mergeSize(
+  existing: Product["sizes"][number],
+  incoming: Product["sizes"][number]
+) {
   const status: Product["sizes"][number]["status"] =
     existing.status === "available" || incoming.status === "available"
       ? "available"
@@ -278,8 +360,10 @@ function groupProducts(products: Product[]): Product[] {
     existing.category = existing.category || product.category;
     existing.description = existing.description || product.description;
     existing.price = existing.price > 0 ? existing.price : product.price;
-    existing.oldPrice = existing.oldPrice && existing.oldPrice > 0 ? existing.oldPrice : product.oldPrice;
-    existing.discount = existing.discount && existing.discount > 0 ? existing.discount : product.discount;
+    existing.oldPrice =
+      existing.oldPrice && existing.oldPrice > 0 ? existing.oldPrice : product.oldPrice;
+    existing.discount =
+      existing.discount && existing.discount > 0 ? existing.discount : product.discount;
 
     existing.images = dedupeImages([...(existing.images ?? []), ...(product.images ?? [])]);
     existing.colors = dedupeColors([...(existing.colors ?? []), ...(product.colors ?? [])]);
@@ -292,9 +376,15 @@ function groupProducts(products: Product[]): Product[] {
     existing.available = existing.available || product.available;
 
     const mergedOffline =
-      existing.offlineOnly || product.offlineOnly || existing.sizes.some((size) => (size.stockOffline ?? 0) > 0) || product.available;
+      existing.offlineOnly ||
+      product.offlineOnly ||
+      existing.sizes.some((size) => (size.stockOffline ?? 0) > 0) ||
+      product.available;
     const mergedWB =
-      existing.wbOnly || product.wbOnly || Boolean(existing.wbUrl) || existing.sizes.some((size) => (size.stockWB ?? 0) > 0);
+      existing.wbOnly ||
+      product.wbOnly ||
+      Boolean(existing.wbUrl) ||
+      existing.sizes.some((size) => (size.stockWB ?? 0) > 0);
     existing.offlineOnly = mergedOffline && !mergedWB;
     existing.wbOnly = !mergedOffline && mergedWB;
     existing.bothAvailable = mergedOffline && mergedWB;
@@ -311,11 +401,26 @@ function groupProducts(products: Product[]): Product[] {
   }
 
   return Array.from(map.values())
-    .map((product) => ({
-      ...product,
-      sizes: [...product.sizes].sort((a, b) => Number(a.value) - Number(b.value) || a.value.localeCompare(b.value)),
-      available: product.available || product.sizes.some((size) => size.status === "available" || size.status === "low"),
-    }))
+    .map((product) => {
+      const reviewInfo = getProductRating({
+        id: product.id,
+        article: product.article,
+        wbUrl: product.wbUrl,
+        images: product.images,
+        rating: product.rating,
+        reviewsCount: product.reviewsCount,
+      });
+
+      return {
+        ...product,
+        rating: reviewInfo.rating,
+        reviewsCount: reviewInfo.reviewsCount,
+        sizes: sortProductSizes(product.sizes, product.category, product.name),
+        available:
+          product.available ||
+          product.sizes.some((size) => size.status === "available" || size.status === "low"),
+      };
+    })
     .filter((product) => product.name || product.brand);
 }
 
@@ -329,12 +434,15 @@ export async function loadProducts(): Promise<Product[]> {
   }
 
   cachePromise = (async () => {
-    const cached = typeof window !== "undefined" ? window.localStorage.getItem(CACHE_KEY) : null;
+    const cached =
+      typeof window !== "undefined" ? window.localStorage.getItem(CACHE_KEY) : null;
 
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as Product[];
-        cacheProducts = parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cacheProducts = groupProducts(parsed.map((p) => normalizeProduct(p)));
+        }
       } catch {
         cacheProducts = null;
       }
@@ -361,17 +469,24 @@ export async function loadProducts(): Promise<Product[]> {
       freshAt = Date.now();
 
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
+        try {
+          window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
+        } catch {
+          // ignore storage quota errors
+        }
       }
 
       return grouped;
     } catch (error) {
-      if (cacheProducts) {
+      if (cacheProducts && cacheProducts.length > 0) {
         return cacheProducts;
       }
       // eslint-disable-next-line no-console
       console.error("Ошибка загрузки товаров:", error);
-      return [];
+      const fallback = groupProducts(
+        (fallbackCatalogProducts as unknown as ProductPayload[]).map(normalizeProduct)
+      );
+      return fallback;
     } finally {
       cachePromise = null;
     }
@@ -382,17 +497,10 @@ export async function loadProducts(): Promise<Product[]> {
 
 /**
  * Актуальный каталог для корзины и оформления заказа.
- *
- * loadProducts() при параллельных вызовах мгновенно отдаёт СТАРЫЙ кэш из
- * localStorage (свежие данные приходят только первому вызову), поэтому для
- * проверки цен и остатков перед заказом используется эта функция:
- *  - если каталог уже получен с сервера недавно (30 сек) — отдаёт его из памяти;
- *  - { force: true } — всегда запрашивает сервер (перед отправкой заказа);
- *  - если сервер недоступен — отдаёт то, что есть (кэш), а проверку остатков
- *    всё равно выполняет сервер при создании заказа.
  */
-export async function refreshProducts(options: { force?: boolean } = {}): Promise<Product[]> {
-  // идёт обычная загрузка через loadProducts() — это уже свежие данные
+export async function refreshProducts(
+  options: { force?: boolean } = {}
+): Promise<Product[]> {
   if (cachePromise) {
     return cachePromise;
   }
@@ -455,7 +563,9 @@ export async function preloadProduct(id: string): Promise<void> {
 export async function getProductById(id: string): Promise<Product | undefined> {
   const products = await loadProducts();
 
-  return products.find((p) => String(p.id) === String(id));
+  return products.find(
+    (p) => String(p.id) === String(id) || String(p.article) === String(id)
+  );
 }
 
 export async function getNewProducts(): Promise<Product[]> {
