@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { describeDelivery, PAYMENT_LABELS } from "../../lib/delivery";
+import { describeDelivery, getDeliveryPriceLabel, PAYMENT_LABELS } from "../../lib/delivery";
 import type { Order } from "../../lib/orders";
 import { formatPrice } from "../../lib/utils";
 
@@ -26,6 +26,10 @@ export default function OrderSummary({ order }: { order: Order }) {
     service: order.deliveryService,
     pickupAddress: order.pickupAddress,
   });
+  // Стоимость, сохранённая сервером в заказе; для старых заказов без неё — по текущему списку цен
+  const deliveryPrice =
+    order.deliveryPrice ||
+    getDeliveryPriceLabel({ type: order.deliveryType, service: order.deliveryService });
 
   return (
     <div className="flex flex-col gap-4">
@@ -84,8 +88,21 @@ export default function OrderSummary({ order }: { order: Order }) {
 
       <dl className="flex flex-col gap-2 border-t border-white/8 pt-4 text-sm">
         <Row label="Доставка" value={delivery} />
+        {deliveryPrice && (
+          <Row
+            label="Стоимость доставки"
+            value={deliveryPrice}
+            accent={order.deliveryType === "pickup"}
+          />
+        )}
         <Row label="Оплата" value={PAYMENT_LABELS[order.paymentMethod]} />
       </dl>
+      {order.deliveryType === "russia" && deliveryPrice && (
+        <p className="-mt-2 text-xs leading-relaxed text-white/40">
+          Стоимость доставки не входит в итог. «От» — минимальная цена, точную сумму подтвердим при
+          согласовании заказа.
+        </p>
+      )}
     </div>
   );
 }

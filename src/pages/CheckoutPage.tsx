@@ -24,8 +24,11 @@ import {
 import {
   DELIVERY_TYPE_LABELS,
   getAvailablePaymentMethods,
+  getDeliveryPriceLabel,
+  getRussiaPriceFromLabel,
   PAYMENT_LABELS,
   PICKUP_POINTS,
+  PICKUP_PRICE_LABEL,
   RUSSIA_SERVICES,
   type DeliveryType,
 } from "../lib/delivery";
@@ -279,6 +282,8 @@ export default function CheckoutPage() {
     );
   }
 
+  const deliveryPriceLabel = getDeliveryPriceLabel(delivery);
+
   const summary = (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between text-sm">
@@ -295,6 +300,26 @@ export default function CheckoutPage() {
         <span className="text-base font-semibold text-white">Итого</span>
         <span className="text-xl font-bold text-white">{formatPrice(totals.total)}</span>
       </div>
+      {deliveryPriceLabel && (
+        <div className="mt-3 border-t border-white/8 pt-3">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-white/50">Доставка</span>
+            <span
+              className={`font-medium ${
+                delivery.type === "pickup" ? "text-emerald-400" : "text-white"
+              }`}
+            >
+              {deliveryPriceLabel}
+            </span>
+          </div>
+          {delivery.type === "russia" && (
+            <p className="mt-2 text-xs leading-relaxed text-white/40">
+              Стоимость доставки не входит в итог. «От» — минимальная цена, точную сумму подтвердим
+              при согласовании заказа.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -373,6 +398,8 @@ export default function CheckoutPage() {
                       onClick={() => setDelivery({ ...delivery, type })}
                       icon={type === "pickup" ? <MapPin size={18} /> : <Truck size={18} />}
                       title={DELIVERY_TYPE_LABELS[type]}
+                      price={type === "pickup" ? PICKUP_PRICE_LABEL : getRussiaPriceFromLabel()}
+                      priceAccent={type === "pickup"}
                     />
 
                     {/* Подробности выбора показываются прямо под выбранным способом */}
@@ -423,12 +450,13 @@ export default function CheckoutPage() {
                               selected={delivery.service === service}
                               onClick={() => setDelivery({ ...delivery, service })}
                               title={service}
+                              price={getDeliveryPriceLabel({ type: "russia", service }) ?? undefined}
                             />
                           ))}
                         </div>
                         <p className="mt-3 text-xs leading-relaxed text-white/35">
-                          Выбранная служба передаётся вместе с заказом. Детали доставки мы уточним
-                          по телефону.
+                          «От» — минимальная стоимость доставки. Выбранная служба передаётся вместе с
+                          заказом, точную стоимость и детали мы уточним по телефону.
                         </p>
                       </div>
                     )}
@@ -669,12 +697,17 @@ function OptionRow({
   title,
   description,
   icon,
+  price,
+  priceAccent = false,
 }: {
   selected: boolean;
   onClick: () => void;
   title: string;
   description?: string;
   icon?: ReactNode;
+  /** Стоимость справа: «Бесплатно» / «от 96 ₽» */
+  price?: string;
+  priceAccent?: boolean;
 }) {
   return (
     <button
@@ -701,6 +734,15 @@ function OptionRow({
         <span className="block text-sm font-medium text-white">{title}</span>
         {description && <span className="mt-0.5 block text-xs text-white/40">{description}</span>}
       </span>
+      {price && (
+        <span
+          className={`shrink-0 whitespace-nowrap text-sm font-semibold ${
+            priceAccent ? "text-emerald-400" : "text-white/70"
+          }`}
+        >
+          {price}
+        </span>
+      )}
     </button>
   );
 }

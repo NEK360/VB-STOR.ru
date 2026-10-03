@@ -7,6 +7,8 @@
  * сервер не примет адрес/службу, которых нет в его списке.
  */
 
+import { formatPrice } from "./utils";
+
 export type DeliveryType = "pickup" | "russia";
 export type PaymentMethod = "prepaid" | "on_receipt";
 
@@ -34,6 +36,51 @@ export const RUSSIA_SERVICES: readonly string[] = [
   "CDEK",
   "Почта России",
 ];
+
+/**
+ * Стоимость доставки, ₽.
+ *  - Пункт выдачи — бесплатно.
+ *  - У служб указана МИНИМАЛЬНАЯ цена («от»): точную сумму менеджер подтверждает при согласовании заказа.
+ *  - В сумму заказа («Итого») стоимость доставки не входит — она показывается отдельной строкой.
+ *
+ * Этот же список продублирован в apps-script/VBStoreApi.gs (CONFIG.DELIVERY_PRICES): стоимость доставки
+ * в заказ записывает сервер по своему списку, подменить её с сайта нельзя.
+ */
+export const RUSSIA_SERVICE_PRICES: Readonly<Record<string, number>> = {
+  Wildberries: 96,
+  OZON: 144,
+  Яндекс: 225,
+  CDEK: 290,
+  "Почта России": 249,
+};
+
+export const PICKUP_PRICE_LABEL = "Бесплатно";
+
+/** «от 96 ₽» */
+function fromPrice(value: number): string {
+  return `от ${formatPrice(value)}`;
+}
+
+/** Самая низкая цена среди служб — подпись у пункта «Доставка по России» до выбора службы. */
+export function getRussiaPriceFromLabel(): string {
+  return fromPrice(Math.min(...Object.values(RUSSIA_SERVICE_PRICES)));
+}
+
+/**
+ * Стоимость выбранной доставки: «Бесплатно» или «от 290 ₽».
+ * null — пока назвать нельзя (доставка по России без выбранной службы, либо способ не выбран).
+ */
+export function getDeliveryPriceLabel(delivery: {
+  type: DeliveryType | string | null;
+  service?: string | null;
+}): string | null {
+  if (delivery.type === "pickup") return PICKUP_PRICE_LABEL;
+  if (delivery.type === "russia" && delivery.service) {
+    const price = RUSSIA_SERVICE_PRICES[delivery.service];
+    return price > 0 ? fromPrice(price) : null;
+  }
+  return null;
+}
 
 export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
   pickup: "Пункт выдачи",

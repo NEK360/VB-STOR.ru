@@ -32,6 +32,8 @@ export interface Order {
   deliveryType: DeliveryType;
   deliveryService: string | null;
   pickupAddress: string | null;
+  /** «Бесплатно» или «от 290 ₽» — записывается сервером; в сумму заказа не входит */
+  deliveryPrice: string | null;
   paymentMethod: PaymentMethod;
   /** Статус из таблицы — владелец может менять его вручную */
   status: string;
@@ -114,6 +116,7 @@ export function parseOrder(raw: unknown): Order | null {
     deliveryType,
     deliveryService: asNullableString(order.deliveryService),
     pickupAddress: asNullableString(order.pickupAddress),
+    deliveryPrice: asNullableString(order.deliveryPrice),
     paymentMethod,
     status: asString(order.status),
   };
