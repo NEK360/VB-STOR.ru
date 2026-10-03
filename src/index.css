@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/*
+ * Высота нижней навигации на телефоне. Точное значение записывает MobileNav
+ * (ResizeObserver); это запасное значение на время до его запуска.
+ * Закреплённые панели «Итого / Купить» и отступы страниц опираются на неё,
+ * поэтому ничего не перекрывает нижнюю навигацию.
+ */
+:root {
+  --vb-mobile-nav-h: 0px;
+}
+@media (max-width: 767px) {
+  :root {
+    --vb-mobile-nav-h: 5rem;
+  }
+}
+
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
 

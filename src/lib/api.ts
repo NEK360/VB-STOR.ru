@@ -88,10 +88,14 @@ interface ProductPayload {
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
+const VB_API_URL =
+  "https://script.google.com/macros/s/AKfycbz2p44X5L9vqrBzHH_bXiEuNWP8P2PnuytL_l-kMxU2HGp6eyYtZR7TZtyNHkbEDWa51A/exec";
 const CACHE_KEY = "catalog_cache";
 
 let cacheProducts: Product[] | null = null;
 let cachePromise: Promise<Product[]> | null = null;
+let freshAt = 0; // когда каталог последний раз был получен с сервера (а не из localStorage)
+let refreshPromise: Promise<Product[]> | null = null;
 
 function getProductRating(product: { id: string; article: string }) {
   const productReviews = reviews.filter(
@@ -354,6 +358,7 @@ export async function loadProducts(): Promise<Product[]> {
       const normalized = data.map(normalizeProduct);
       const grouped = groupProducts(normalized);
       cacheProducts = grouped;
+      freshAt = Date.now();
 
       if (typeof window !== "undefined") {
         window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
@@ -373,6 +378,70 @@ export async function loadProducts(): Promise<Product[]> {
   })();
 
   return cachePromise;
+}
+
+/**
+ * Актуальный каталог для корзины и оформления заказа.
+ *
+ * loadProducts() при параллельных вызовах мгновенно отдаёт СТАРЫЙ кэш из
+ * localStorage (свежие данные приходят только первому вызову), поэтому для
+ * проверки цен и остатков перед заказом используется эта функция:
+ *  - если каталог уже получен с сервера недавно (30 сек) — отдаёт его из памяти;
+ *  - { force: true } — всегда запрашивает сервер (перед отправкой заказа);
+ *  - если сервер недоступен — отдаёт то, что есть (кэш), а проверку остатков
+ *    всё равно выполняет сервер при создании заказа.
+ */
+export async function refreshProducts(options: { force?: boolean } = {}): Promise<Product[]> {
+  // идёт обычная загрузка через loadProducts() — это уже свежие данные
+  if (cachePromise) {
+    return cachePromise;
+  }
+
+  if (!options.force && cacheProducts && Date.now() - freshAt < 30_000) {
+    return cacheProducts;
+  }
+
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(API_URL, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to refresh products: ${res.status}`);
+      }
+
+      const data = (await res.json()) as ProductPayload[];
+
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected catalog format");
+      }
+
+      const grouped = groupProducts(data.map(normalizeProduct));
+      cacheProducts = grouped;
+      freshAt = Date.now();
+
+      try {
+        window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
+      } catch {
+        // переполнен localStorage — данные остаются в памяти
+      }
+
+      return grouped;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Не удалось обновить каталог:", error);
+      return cacheProducts ?? (await loadProducts());
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function preloadProduct(id: string): Promise<void> {

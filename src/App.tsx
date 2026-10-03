@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   HashRouter,
   Routes,
@@ -23,6 +23,14 @@ import ReviewsPage from "./pages/ReviewsPage";
 import ContactsPage from "./pages/ContactsPage";
 import FAQPage from "./pages/FAQPage";
 import FavoritesPage from "./pages/FavoritesPage";
+import CartPage from "./pages/CartPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderSuccessPage from "./pages/OrderSuccessPage";
+import OrdersPage from "./pages/OrdersPage";
+import ProfilePage from "./pages/ProfilePage";
+import Toaster from "./components/ui/Toaster";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import { validateSession } from "./lib/auth";
 
 // Page transition wrapper
 function PageWrapper({ children }: { children: React.ReactNode }) {
@@ -38,6 +46,25 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Страница в переходной обёртке + защита от «белого экрана» при непредвиденной ошибке
+function SafePage({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+
+  // Эти страницы (корзина, оформление, заказы, профиль, карточка товара) всегда открываются с самого верха.
+  // Глобальный ScrollToTop после «Назад» пропускает ближайший обычный переход: флаг popstate он взводит уже
+  // ПОСЛЕ того, как роутер обработал маршрут. Без этого корзина или оформление открывались бы со смещением
+  // прокрутки предыдущей страницы, и заголовок с первыми товарами оказывался бы за кадром.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, []);
+
+  return (
+    <PageWrapper>
+      <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
+    </PageWrapper>
+  );
+}
+
 // Backward-compatible redirect
 function LegacyProductRedirect() {
   const { id } = useParams<{ id: string }>();
@@ -47,10 +74,16 @@ function LegacyProductRedirect() {
 function AppRoutes() {
   const location = useLocation();
 
+  // один раз за загрузку проверяем, что сохранённый вход ещё действителен
+  useEffect(() => {
+    void validateSession();
+  }, []);
+
   return (
     <>
       <ScrollToTop />
       <Header />
+      <Toaster />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route
@@ -72,9 +105,9 @@ function AppRoutes() {
           <Route
             path="/catalog/:id"
             element={
-              <PageWrapper>
+              <SafePage>
                 <ProductPage />
-              </PageWrapper>
+              </SafePage>
             }
           />
           <Route
@@ -121,6 +154,48 @@ function AppRoutes() {
               </PageWrapper>
             }
           />
+          <Route
+            path="/cart"
+            element={
+              <SafePage>
+                <CartPage />
+              </SafePage>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <SafePage>
+                <CheckoutPage />
+              </SafePage>
+            }
+          />
+          <Route
+            path="/order-success/:orderId"
+            element={
+              <SafePage>
+                <OrderSuccessPage />
+              </SafePage>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <SafePage>
+                <OrdersPage />
+              </SafePage>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <SafePage>
+                <ProfilePage />
+              </SafePage>
+            }
+          />
+          <Route path="/login" element={<Navigate to="/profile" replace />} />
+          <Route path="/register" element={<Navigate to="/profile?tab=register" replace />} />
           <Route
             path="*"
             element={
