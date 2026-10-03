@@ -43,6 +43,8 @@ var VBStoreApi = (function () {
     // (Расширения → Apps Script) — тогда используется эта таблица.
     SPREADSHEET_ID: '',
 
+    // Имена листов. Совпадать с вашими должны ТОЧНО, включая регистр: если листа с таким именем нет,
+    // скрипт создаёт новый (поэтому переименованный лист «orders» заказы не получит).
     USERS_SHEET: 'USERS',
     ORDERS_SHEET: 'ORDERS',
 
@@ -81,6 +83,11 @@ var VBStoreApi = (function () {
     ],
     DELIVERY_SERVICES: ['Wildberries', 'OZON', 'Яндекс', 'CDEK', 'Почта России'],
 
+    // Стоимость доставки, ₽. Пункт выдачи — бесплатно. У служб указана МИНИМАЛЬНАЯ цена («от»): точную сумму
+    // подтверждает менеджер. В сумму заказа (total) стоимость доставки не входит.
+    // Держите в соответствии с src/lib/delivery.ts на сайте.
+    DELIVERY_PRICES: { 'Wildberries': 96, 'OZON': 144, 'Яндекс': 225, 'CDEK': 290, 'Почта России': 249 },
+
     // Начальные статусы. Дальше вы меняете статус вручную в таблице — покупатель увидит его в «Мои заказы».
     STATUS_PREPAID: 'Ожидает оплаты',
     STATUS_ON_RECEIPT: 'Новый',
@@ -110,12 +117,13 @@ var VBStoreApi = (function () {
   var ORDER_HEADERS = [
     'orderId', 'createdAt', 'userPhone', 'items', 'total', 'promoCode', 'discount',
     'deliveryType', 'deliveryService', 'pickupAddress', 'paymentMethod', 'status',
-    'subtotal', 'itemsJson', 'requestId'
+    'subtotal', 'itemsJson', 'requestId', 'deliveryPrice'
   ];
   var ORDER_FORMATS = {
     orderId: '0', createdAt: 'dd.MM.yyyy HH:mm:ss', userPhone: '@', items: '@',
     total: '#,##0', promoCode: '@', discount: '#,##0', deliveryType: '@', deliveryService: '@',
-    pickupAddress: '@', paymentMethod: '@', status: '@', subtotal: '#,##0', itemsJson: '@', requestId: '@'
+    pickupAddress: '@', paymentMethod: '@', status: '@', subtotal: '#,##0', itemsJson: '@', requestId: '@',
+    deliveryPrice: '@'
   };
 
   // ==========================================================================
@@ -326,27 +334,53 @@ var VBStoreApi = (function () {
     return map;
   }
 
-  function appendRecord_(sheet, map, record, formats) {
-    var width = sheet.getLastColumn();
-    var values = [];
-    var numberFormats = [];
-    for (var c = 0; c < width; c++) { values.push(''); numberFormats.push('General'); }
+  // Первая свободная строка ПО КЛЮЧЕВОЙ КОЛОНКЕ (номер заказа / телефон). Раньше строка выбиралась по getLastRow() —
+  // самой нижней занятой ячейке ЛЮБОГО столбца: формулы, галочки или ваши собственные столбцы уводили заказ на
+  // сотни строк вниз, и казалось, что заказа в таблице нет.
+  function nextRowByKey_(sheet, keyCol) {
+    var last = sheet.getLastRow();
+    if (!keyCol || last < 2) return Math.max(2, last + 1);
+    var values = sheet.getRange(2, keyCol, last - 1, 1).getValues();
+    for (var i = values.length - 1; i >= 0; i--) {
+      if (String(values[i][0]).replace(/\s+/g, '') !== '') return i + 3; // строка i+2 занята — берём следующую
+    }
+    return 2;
+  }
 
-    Object.keys(record).forEach(function (key) {
-      var col = map[key];
-      if (!col) return;
-      values[col - 1] = record[key];
-      if (formats[key]) numberFormats[col - 1] = formats[key];
-    });
+  // Дописывает запись и пишет ТОЛЬКО в наши колонки: ваши собственные столбцы (формулы, галочки, заметки)
+  // не затираются. Подряд идущие наши колонки пишутся одним вызовом. После записи проверяем, что запись на месте.
+  function appendRecord_(sheet, map, record, formats, keyName) {
+    var rowIndex = nextRowByKey_(sheet, map[keyName]);
+    var missingRows = rowIndex - sheet.getMaxRows();
+    if (missingRows > 0) sheet.insertRowsAfter(sheet.getMaxRows(), missingRows);
 
-    var rowIndex = sheet.getLastRow() + 1;
-    var range = sheet.getRange(rowIndex, 1, 1, width);
-    // Формат задаём ДО записи: так «+79181234567» остаётся текстом, а не превращается в число
+    var cols = Object.keys(record)
+      .map(function (key) { return { col: map[key], key: key }; })
+      .filter(function (item) { return item.col; })
+      .sort(function (x, y) { return x.col - y.col; });
+
     var writeStarted = Date.now();
-    range.setNumberFormats([numberFormats]);
-    range.setValues([values]);
+    var i = 0;
+    while (i < cols.length) {
+      var j = i;
+      while (j + 1 < cols.length && cols[j + 1].col === cols[j].col + 1) j++;
+      var block = cols.slice(i, j + 1);
+      var range = sheet.getRange(rowIndex, block[0].col, 1, block.length);
+      // Формат задаём ДО записи: так «+79181234567» остаётся текстом, а не превращается в число
+      range.setNumberFormats([block.map(function (item) { return formats[item.key] || 'General'; })]);
+      range.setValues([block.map(function (item) { return record[item.key]; })]);
+      i = j + 1;
+    }
     SpreadsheetApp.flush(); // дожидаемся фактической записи — так время «запись» в журнале настоящее
     perf_.writeMs = (perf_.writeMs || 0) + (Date.now() - writeStarted);
+
+    var written = sheet.getRange(rowIndex, map[keyName]).getValue();
+    if (String(written) !== String(record[keyName])) {
+      throw new Error('Запись не появилась в листе «' + sheet.getName() + '», строка ' + rowIndex +
+        ' (ключ ' + keyName + ': ожидали «' + record[keyName] + '», в ячейке «' + written + '»)');
+    }
+    perf_.sheetName = sheet.getName();
+    perf_.row = rowIndex;
     return rowIndex;
   }
 
@@ -450,7 +484,7 @@ var VBStoreApi = (function () {
         createdAt: now,
         lastLoginAt: now,
         sessionVersion: 1
-      }, USER_FORMATS);
+      }, USER_FORMATS, 'phone');
 
       bumpCount_(globalKey, 3600);
       return issueSession_(phone, 1);
@@ -687,6 +721,13 @@ var VBStoreApi = (function () {
     throw new ApiError('DELIVERY_INVALID');
   }
 
+  // Подпись стоимости доставки: «Бесплатно» (пункт выдачи) или «от 96 ₽» (служба). Цены — в CONFIG.DELIVERY_PRICES.
+  function deliveryPriceLabel_(delivery) {
+    if (delivery.type === 'pickup') return 'Бесплатно';
+    var price = CONFIG.DELIVERY_PRICES[delivery.service];
+    return price > 0 ? 'от ' + price + ' ₽' : '';
+  }
+
   function readPayment_(method, delivery) {
     if (method !== 'prepaid' && method !== 'on_receipt') throw new ApiError('PAYMENT_NOT_ALLOWED');
     // «При получении» — только для ПВЗ Wildberries из списка; для остального доступно только «Сразу»
@@ -760,6 +801,10 @@ var VBStoreApi = (function () {
       deliveryType: String(cell('deliveryType')) === LABEL.russia ? 'russia' : 'pickup',
       deliveryService: String(cell('deliveryService') || '') || null,
       pickupAddress: String(cell('pickupAddress') || '') || null,
+      deliveryPrice: String(cell('deliveryPrice') || '') || deliveryPriceLabel_({
+        type: String(cell('deliveryType')) === LABEL.russia ? 'russia' : 'pickup',
+        service: String(cell('deliveryService') || '')
+      }),
       paymentMethod: String(cell('paymentMethod')) === LABEL.on_receipt ? 'on_receipt' : 'prepaid',
       status: String(cell('status') || '')
     };
@@ -799,11 +844,22 @@ var VBStoreApi = (function () {
     return null;
   }
 
-  function notifyOwner_(order) {
+  // Куда именно записан заказ: лист, строка и ссылка на неё — чтобы владелец находил заказ, даже если смотрит не туда.
+  function locationOf_(sheet, row) {
+    var where = { sheet: sheet.getName(), row: row, spreadsheet: '', url: '' };
+    try {
+      var spreadsheet = sheet.getParent();
+      where.spreadsheet = spreadsheet.getName();
+      where.url = spreadsheet.getUrl() + '#gid=' + sheet.getSheetId() + '&range=A' + row;
+    } catch (err) { /* ссылка необязательна */ }
+    return where;
+  }
+
+  function notifyOwner_(order, where) {
     try {
       // Необязательное уведомление на почту: работает, только если добавлен файл VBStoreNotify.gs
       if (typeof VBStoreNotify !== 'undefined' && VBStoreNotify && typeof VBStoreNotify.newOrder === 'function') {
-        VBStoreNotify.newOrder(order, itemsText_(order.items));
+        VBStoreNotify.newOrder(order, itemsText_(order.items), where);
       }
     } catch (err) {
       console.error('Не удалось отправить уведомление о заказе: ' + err);
@@ -823,6 +879,7 @@ var VBStoreApi = (function () {
 
     var items = readItems_(input.items);
     var delivery = readDelivery_(input.delivery);
+    var deliveryPrice = deliveryPriceLabel_(delivery);
     var paymentMethod = readPayment_(input.paymentMethod, delivery);
 
     // Каталог читаем до блокировки: чтение может занять секунды, а блокировка должна быть короткой
@@ -862,8 +919,9 @@ var VBStoreApi = (function () {
         status: status,
         subtotal: totals.subtotal,
         itemsJson: itemsJson_(lines),
-        requestId: requestId
-      }, ORDER_FORMATS);
+        requestId: requestId,
+        deliveryPrice: deliveryPrice
+      }, ORDER_FORMATS, 'orderId');
 
       if (map.items) sheet.getRange(rowIndex, map.items).setWrap(true);
       bumpCount_(rateKey, 3600);
@@ -885,15 +943,16 @@ var VBStoreApi = (function () {
         deliveryType: delivery.type,
         deliveryService: delivery.service || null,
         pickupAddress: delivery.pickupAddress || null,
+        deliveryPrice: deliveryPrice,
         paymentMethod: paymentMethod,
         status: status
       };
 
-      return { order: order, created: true };
+      return { order: order, created: true, where: locationOf_(sheet, rowIndex) };
     }, 'createOrder');
 
     // уведомление — уже после освобождения блокировки (отправка почты может занять секунды)
-    if (result.created) notifyOwner_(result.order);
+    if (result.created) notifyOwner_(result.order, result.where);
     return { order: result.order };
   }
 
@@ -968,6 +1027,7 @@ var VBStoreApi = (function () {
     if (perf_.lockWaitMs) parts.push('ожидание блокировки ' + perf_.lockWaitMs + ' мс');
     if (perf_.sheetMs) parts.push('листы ' + perf_.sheetMs + ' мс');
     if (perf_.writeMs) parts.push('запись ' + perf_.writeMs + ' мс');
+    if (perf_.row) parts.push('записано в лист «' + perf_.sheetName + '», строка ' + perf_.row);
     try { console.log(parts.join(', ')); } catch (ignore) { /* журнал недоступен — не мешаем ответу */ }
   }
 
@@ -1002,7 +1062,47 @@ var VBStoreApi = (function () {
     var message = 'Каталог прочитан: строк ' + rows.length + ', товаров ' + Object.keys(index).length + '.';
     Logger.log(message);
     Logger.log(measureSheet_(before));
+    Logger.log(describeSheets_());
     return message;
+  }
+
+  // Куда пишутся данные: какая таблица, какие в ней листы и что лежит в ORDERS и USERS. Помогает найти «пропавшие» заказы.
+  function describeSheets_() {
+    try {
+      var spreadsheet = getSpreadsheet_();
+      var names = spreadsheet.getSheets().map(function (sheet) { return sheet.getName(); });
+      var lines = ['Таблица «' + spreadsheet.getName() + '», листы: ' + names.join(', ')];
+      [
+        { name: CONFIG.ORDERS_SHEET, key: 'orderId', what: 'заказов' },
+        { name: CONFIG.USERS_SHEET, key: 'phone', what: 'пользователей' }
+      ].forEach(function (item) {
+        var sheet = spreadsheet.getSheetByName(item.name);
+        if (!sheet) { lines.push('лист ' + item.name + ': НЕТ (создастся при первой записи)'); return; }
+        var col = sheet.getLastColumn() ? headerMap_(sheet)[item.key] : 0;
+        var last = sheet.getLastRow();
+        var count = 0;
+        var lastRow = 0;
+        if (col && last >= 2) {
+          var values = sheet.getRange(2, col, last - 1, 1).getValues();
+          for (var i = 0; i < values.length; i++) {
+            if (String(values[i][0]).replace(/\s+/g, '') !== '') { count++; lastRow = i + 2; }
+          }
+        }
+        lines.push('лист ' + item.name + ': ' + item.what + ' ' + count + (lastRow ? ', последний в строке ' + lastRow : '') +
+          '; последняя занятая строка листа ' + last + ', всего строк ' + sheet.getMaxRows());
+      });
+      var similar = names.filter(function (name) {
+        return /order|заказ/i.test(name) && name !== CONFIG.ORDERS_SHEET;
+      });
+      if (similar.length) {
+        lines.push('ВНИМАНИЕ: есть похожие листы (' + similar.join(', ') + '). Заказы пишутся в лист «' + CONFIG.ORDERS_SHEET +
+          '», а не в них. Если вы смотрите заказы в другом листе, переименуйте его в ' + CONFIG.ORDERS_SHEET +
+          ' или поменяйте CONFIG.ORDERS_SHEET');
+      }
+      return lines.join('; ') + '.';
+    } catch (err) {
+      return 'Не удалось описать таблицу: ' + String(err && err.message ? err.message : err);
+    }
   }
 
   function probeLock_(lock) {

@@ -21,8 +21,11 @@ var VBStoreNotify = (function () {
     return String(Math.round(Number(value) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽';
   }
 
-  /** order — заказ в формате сайта, itemsText — готовый многострочный список товаров. */
-  function newOrder(order, itemsText) {
+  /**
+   * order — заказ в формате сайта, itemsText — готовый многострочный список товаров,
+   * where — куда записан заказ в таблице: { sheet, row, spreadsheet, url } (необязательно).
+   */
+  function newOrder(order, itemsText, where) {
     if (!OWNER_EMAIL) return;
 
     var timeZone = Session.getScriptTimeZone();
@@ -44,9 +47,22 @@ var VBStoreNotify = (function () {
       'Доставка: ' + DELIVERY[order.deliveryType] +
         (order.pickupAddress ? ' — ' + order.pickupAddress : '') +
         (order.deliveryService ? ' — ' + order.deliveryService : ''),
+      order.deliveryPrice
+        ? 'Стоимость доставки: ' + order.deliveryPrice +
+          (order.deliveryType === 'russia' ? ' (в итог не входит; точную сумму подтвердить с покупателем)' : '')
+        : null,
       'Оплата: ' + PAYMENT[order.paymentMethod],
       'Статус: ' + order.status
     ].filter(function (line) { return line !== null; });
+
+    if (where && where.sheet) {
+      lines.push(
+        '',
+        'Запись в таблице: лист «' + where.sheet + '», строка ' + where.row +
+          (where.spreadsheet ? ' (таблица «' + where.spreadsheet + '»)' : '')
+      );
+      if (where.url) lines.push(where.url);
+    }
 
     MailApp.sendEmail({
       to: OWNER_EMAIL,
@@ -69,6 +85,7 @@ var VBStoreNotify = (function () {
       deliveryService: null,
       pickupAddress: 'г. Изобильный, Улица Кирова 2а',
       paymentMethod: 'on_receipt',
+      deliveryPrice: 'Бесплатно',
       status: 'Новый'
     }, '1. Пример товара, размер 42 × 1 = 1000 ₽');
     return 'Тестовое письмо отправлено на ' + OWNER_EMAIL + '. Проверьте почту (и папку «Спам»).';

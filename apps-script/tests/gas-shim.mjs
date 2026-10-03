@@ -13,11 +13,19 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const GS_DIR = path.resolve(here, "..");
 
 class FakeSheet {
-  constructor(name) {
+  constructor(name, parent = null, id = 0) {
     this.name = name;
+    this.parent = parent;
+    this.id = id;
     this.cells = new Map(); // "r,c" -> { value, format }
     this.frozenRows = 0;
+    this.maxRows = 1000; // как у нового листа в Google Таблицах; запись за его пределы падает
   }
+  getName() { return this.name; }
+  getParent() { return this.parent; }
+  getSheetId() { return this.id; }
+  getMaxRows() { return this.maxRows; }
+  insertRowsAfter(afterPosition, howMany) { this.maxRows += howMany; }
   _key(r, c) { return `${r},${c}`; }
   _get(r, c) { return this.cells.get(this._key(r, c)); }
   _isEmpty(v) { return v === "" || v === null || v === undefined; }
@@ -59,7 +67,13 @@ class FakeRange {
     return out;
   }
   getValue() { return this.getValues()[0][0]; }
+  _checkBounds() {
+    if (this.row + this.numRows - 1 > this.sheet.maxRows) {
+      throw new Error("The coordinates of the range are outside the dimensions of the sheet.");
+    }
+  }
   setValues(values) {
+    this._checkBounds();
     values.forEach((line, r) =>
       line.forEach((value, c) => {
         const key = this.sheet._key(this.row + r, this.col + c);
@@ -71,6 +85,7 @@ class FakeRange {
   }
   setValue(value) { return this.setValues([[value]]); }
   setNumberFormats(formats) {
+    this._checkBounds();
     formats.forEach((line, r) =>
       line.forEach((format, c) => {
         const key = this.sheet._key(this.row + r, this.col + c);
@@ -85,10 +100,13 @@ class FakeRange {
 }
 
 class FakeSpreadsheet {
-  constructor() { this.sheets = new Map(); }
+  constructor() { this.sheets = new Map(); this.nextId = 0; }
+  getName() { return "Тестовая таблица VB STORE"; }
+  getUrl() { return "https://docs.google.com/spreadsheets/d/TEST_SPREADSHEET/edit"; }
+  getSheets() { return [...this.sheets.values()]; }
   getSheetByName(name) { return this.sheets.get(name) ?? null; }
   insertSheet(name) {
-    const sheet = new FakeSheet(name);
+    const sheet = new FakeSheet(name, this, this.nextId++ * 1000 + 17);
     this.sheets.set(name, sheet);
     return sheet;
   }

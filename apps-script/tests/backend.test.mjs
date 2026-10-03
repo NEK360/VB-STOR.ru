@@ -692,3 +692,182 @@ describe("Уведомление о заказе на почту", () => {
     assert.match(env.mails[0].body, /Телефон: \+79181234567/);
   });
 });
+
+describe("Запись заказа в таблицу: место, чужие столбцы, проверка", () => {
+  it("заказ пишется в первую свободную строку по номеру заказа, а не под самой нижней ячейкой листа; ваши столбцы не затираются", () => {
+    env.sandbox.vbStoreSetup();
+    const sheet = env.sheet("ORDERS");
+    const owner = sheet.getLastColumn() + 1; // ваш столбец справа от наших
+    sheet.getRange(1, owner).setValue("Менеджер");
+    for (let row = 2; row <= 40; row++) sheet.getRange(row, owner).setValue(`заметка ${row}`); // заметки до 40-й строки
+
+    const { token } = session();
+    const first = createOrder(token, orderInput());
+    assert.equal(first.ok, true, JSON.stringify(first));
+    const second = createOrder(token, orderInput());
+    assert.equal(second.ok, true, JSON.stringify(second));
+
+    // раньше заказ уезжал под 40-ю строку и «пропадал» из виду; теперь он в строках 2 и 3
+    assert.equal(sheet.getRange(2, 1).getValue(), Number(first.data.order.orderId));
+    assert.equal(sheet.getRange(3, 1).getValue(), Number(second.data.order.orderId));
+    assert.equal(sheet.getRange(41, 1).getValue(), "");
+    // заметки владельца на месте (раньше запись на всю ширину листа затирала их пустыми значениями)
+    assert.equal(sheet.getRange(2, owner).getValue(), "заметка 2");
+    assert.equal(sheet.getRange(3, owner).getValue(), "заметка 3");
+    assert.equal(sheet.getRange(40, owner).getValue(), "заметка 40");
+  });
+
+  it("регистрация не затирает ваши столбцы на листе USERS и не уводит пользователя вниз", () => {
+    env.sandbox.vbStoreSetup();
+    const sheet = env.sheet("USERS");
+    const owner = sheet.getLastColumn() + 1;
+    sheet.getRange(1, owner).setValue("Комментарий");
+    for (let row = 2; row <= 15; row++) sheet.getRange(row, owner).setValue(`важно ${row}`);
+
+    assert.equal(register().ok, true);
+    assert.equal(sheet.getRange(2, 1).getValue(), PHONE);
+    assert.equal(sheet.getRange(2, owner).getValue(), "важно 2");
+    assert.equal(sheet.getRange(16, 1).getValue(), "");
+    assert.equal(login().ok, true); // вход находит пользователя
+  });
+
+  it("если строки в листе закончились, строки добавляются, а не «Не удалось оформить заказ»", () => {
+    env.sandbox.vbStoreSetup();
+    const sheet = env.sheet("ORDERS");
+    sheet.maxRows = 2; // в листе остались заголовок и одна строка
+    const { token } = session();
+    for (let i = 0; i < 3; i++) assert.equal(createOrder(token, orderInput()).ok, true);
+    assert.equal(env.rows("ORDERS").length, 3);
+    assert.ok(sheet.getMaxRows() >= 4);
+  });
+
+  it("если запись не появилась в таблице, заказ не подтверждается и письмо не отправляется", () => {
+    env.loadScript("VBStoreNotify.gs");
+    env.sandbox.vbStoreSetup();
+    const { token } = session();
+    const sheet = env.sheet("ORDERS");
+    const original = sheet.getRange.bind(sheet);
+    sheet.getRange = (...args) => {
+      const range = original(...args);
+      range.setValues = () => range; // запись «молча» не доходит до таблицы
+      return range;
+    };
+
+    const res = createOrder(token, orderInput());
+    assert.equal(res.ok, false);
+    assert.equal(res.error.code, "SERVER_ERROR");
+    assert.equal(env.mails.length, 0);
+    assert.ok(env.logs.some((l) => /Запись не появилась в листе «ORDERS»/.test(l)), env.logs.join("\n"));
+  });
+
+  it("письмо о заказе называет точное место записи: лист, строку и даёт ссылку на неё", () => {
+    env.loadScript("VBStoreNotify.gs");
+    const { token } = session();
+    const res = createOrder(token, orderInput());
+    assert.equal(res.ok, true, JSON.stringify(res));
+    const body = env.mails[0].body;
+    assert.match(body, /Запись в таблице: лист «ORDERS», строка 2 \(таблица «Тестовая таблица VB STORE»\)/);
+    assert.match(body, /https:\/\/docs\.google\.com\/spreadsheets\/d\/TEST_SPREADSHEET\/edit#gid=\d+&range=A2/);
+    assert.ok(env.logs.some((l) => /записано в лист «ORDERS», строка 2/.test(l)), env.logs.join("\n"));
+  });
+
+  it("vbStoreSelfTest описывает таблицу и листы и предупреждает о похожем листе (например, «order»)", () => {
+    env.sandbox.vbStoreSetup();
+    env.spreadsheet.insertSheet("order");
+    const { token } = session();
+    assert.equal(createOrder(token, orderInput()).ok, true);
+
+    env.sandbox.vbStoreSelfTest();
+    const line = env.logs.find((l) => /^Таблица «/.test(l));
+    assert.ok(line, env.logs.join("\n"));
+    assert.match(line, /листы: USERS, ORDERS, order/);
+    assert.match(line, /лист ORDERS: заказов 1, последний в строке 2/);
+    assert.match(line, /лист USERS: пользователей 1, последний в строке 2/);
+    assert.match(line, /ВНИМАНИЕ: есть похожие листы \(order\)/);
+  });
+});
+
+describe("Стоимость доставки", () => {
+  const CASES = [
+    [{ type: "pickup", service: null, pickupAddress: PVZ }, "Бесплатно"],
+    [{ type: "russia", service: "Wildberries", pickupAddress: null }, "от 96 ₽"],
+    [{ type: "russia", service: "OZON", pickupAddress: null }, "от 144 ₽"],
+    [{ type: "russia", service: "Яндекс", pickupAddress: null }, "от 225 ₽"],
+    [{ type: "russia", service: "CDEK", pickupAddress: null }, "от 290 ₽"],
+    [{ type: "russia", service: "Почта России", pickupAddress: null }, "от 249 ₽"],
+  ];
+
+  it("пункт выдачи — бесплатно, у служб «от …»; пишется в заказ, а в сумму заказа не входит", () => {
+    const { token } = session();
+    CASES.forEach(([delivery, label], i) => {
+      const res = createOrder(token, orderInput({ delivery, paymentMethod: "prepaid" }));
+      assert.equal(res.ok, true, JSON.stringify(res));
+      assert.equal(res.data.order.deliveryPrice, label);
+      assert.equal(res.data.order.total, 5990); // только товары: доставка в итог не входит
+      const row = env.rows("ORDERS")[i];
+      assert.equal(row.deliveryPrice, label);
+      assert.equal(row.total, 5990);
+    });
+  });
+
+  it("стоимость доставки считает сервер: подменить её с сайта нельзя, лишние поля игнорируются", () => {
+    const { token } = session();
+    const res = createOrder(
+      token,
+      orderInput({
+        delivery: { type: "russia", service: "CDEK", pickupAddress: null, price: 0, deliveryPrice: "Бесплатно" },
+        paymentMethod: "prepaid",
+      })
+    );
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(res.data.order.deliveryPrice, "от 290 ₽");
+  });
+
+  it("в письме указана стоимость доставки; у доставки по России — с пометкой, что в итог она не входит", () => {
+    env.loadScript("VBStoreNotify.gs");
+    const { token } = session();
+    const russia = createOrder(
+      token,
+      orderInput({ delivery: { type: "russia", service: "CDEK", pickupAddress: null }, paymentMethod: "prepaid" })
+    );
+    assert.equal(russia.ok, true, JSON.stringify(russia));
+    assert.match(env.mails[0].body, /Стоимость доставки: от 290 ₽ \(в итог не входит; точную сумму подтвердить с покупателем\)/);
+
+    assert.equal(createOrder(token, orderInput()).ok, true);
+    assert.match(env.mails[1].body, /Стоимость доставки: Бесплатно\n/);
+  });
+
+  it("история заказов: стоимость доставки берётся из таблицы, а для старых строк без неё вычисляется", () => {
+    const { token } = session();
+    const res = createOrder(
+      token,
+      orderInput({ delivery: { type: "russia", service: "OZON", pickupAddress: null }, paymentMethod: "prepaid" })
+    );
+    assert.equal(res.ok, true, JSON.stringify(res));
+
+    const sheet = env.sheet("ORDERS");
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const col = headers.indexOf("deliveryPrice") + 1;
+    assert.ok(col > 0);
+
+    sheet.getRange(2, col).setValue(""); // «старая» строка: колонка со стоимостью появилась позже
+    assert.equal(env.call({ action: "myOrders", token }).data.orders[0].deliveryPrice, "от 144 ₽");
+
+    sheet.getRange(2, col).setValue("от 999 ₽"); // сохранённое в таблице показывается как есть
+    assert.equal(env.call({ action: "myOrders", token }).data.orders[0].deliveryPrice, "от 999 ₽");
+  });
+
+  it("в уже существующий лист ORDERS новая колонка deliveryPrice добавляется справа, остальное не трогается", () => {
+    env.sandbox.vbStoreSetup();
+    const sheet = env.sheet("ORDERS");
+    const before = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const idx = before.indexOf("deliveryPrice");
+    // имитируем лист, созданный прежней версией: колонки deliveryPrice в нём ещё нет
+    sheet.getRange(1, idx + 1).setValue("");
+    const { token } = session();
+    assert.equal(createOrder(token, orderInput()).ok, true);
+    const after = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    assert.equal(after[after.length - 1], "deliveryPrice");
+    assert.equal(env.rows("ORDERS")[0].status, "Новый");
+  });
+});
