@@ -55,5 +55,35 @@ var VBStoreNotify = (function () {
     });
   }
 
-  return { newOrder: newOrder };
+  /** Тестовое письмо: проверяет адрес и (при первом запуске) выдаёт разрешение на отправку почты. */
+  function test() {
+    newOrder({
+      orderId: 'ТЕСТ',
+      createdAt: new Date().toISOString(),
+      userPhone: '+79180000000',
+      subtotal: 1000,
+      discount: 50,
+      promoCode: 'VB5',
+      total: 950,
+      deliveryType: 'pickup',
+      deliveryService: null,
+      pickupAddress: 'г. Изобильный, Улица Кирова 2а',
+      paymentMethod: 'on_receipt',
+      status: 'Новый'
+    }, '1. Пример товара, размер 42 × 1 = 1000 ₽');
+    return 'Тестовое письмо отправлено на ' + OWNER_EMAIL + '. Проверьте почту (и папку «Спам»).';
+  }
+
+  return { newOrder: newOrder, test: test };
 })();
+
+/**
+ * Запустите вручную ОДИН РАЗ (кнопка «Выполнить»): Google попросит разрешение на отправку писем, затем придёт
+ * тестовое письмо. Без этого разрешения письма о заказах не отправляются (а сам заказ сохраняется).
+ * После этого опубликуйте новую версию веб-приложения.
+ */
+function vbStoreNotifyTest() {
+  var message = VBStoreNotify.test();
+  Logger.log(message);
+  return message;
+}

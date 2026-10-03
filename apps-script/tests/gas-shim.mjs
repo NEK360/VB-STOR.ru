@@ -108,8 +108,25 @@ export function createGasEnv(options = {}) {
   const cache = new Map();
   const mails = [];
   let clockOffsetMs = 0;
-  let lockHeld = false;   // держит ли блокировку ТЕКУЩЕЕ выполнение (так ловим вложенные блокировки)
-  let lockBusy = false;   // держит ли её ДРУГОЙ процесс (например, синхронизация каталога по триггеру)
+  // Две независимые блокировки Apps Script: общая (getScriptLock) и пользователя (getUserLock).
+  //   heldByMe — держит ли её ТЕКУЩЕЕ выполнение (так ловим вложенные блокировки);
+  //   busy     — держит ли её ДРУГОЙ процесс (например, синхронизация каталога по триггеру).
+  const locks = { script: { heldByMe: false, busy: false }, user: { heldByMe: false, busy: false } };
+  const makeLock = (kind) => ({
+    waitLock: (ms) => {
+      const lock = locks[kind];
+      if (lock.busy) throw new Error(`Lock timeout: another process was holding the lock for too long (${ms} ms)`);
+      if (lock.heldByMe) throw new Error("Вложенная блокировка: Apps Script так не умеет");
+      lock.heldByMe = true;
+    },
+    tryLock: () => {
+      const lock = locks[kind];
+      if (lock.busy || lock.heldByMe) return false;
+      lock.heldByMe = true;
+      return true;
+    },
+    releaseLock: () => { locks[kind].heldByMe = false; },
+  });
   const logs = [];        // всё, что скрипт пишет через console.* и Logger.log
   const capture = (...args) => void logs.push(args.map(String).join(" "));
   let catalogRows = options.catalogRows ?? [];
@@ -158,19 +175,9 @@ export function createGasEnv(options = {}) {
       }),
     },
     LockService: {
-      getScriptLock: () => ({
-        waitLock: (ms) => {
-          if (lockBusy) throw new Error(`Lock timeout: another process was holding the lock for too long (${ms} ms)`);
-          if (lockHeld) throw new Error("Вложенная блокировка: Apps Script так не умеет");
-          lockHeld = true;
-        },
-        tryLock: () => {
-          if (lockBusy || lockHeld) return false;
-          lockHeld = true;
-          return true;
-        },
-        releaseLock: () => { lockHeld = false; },
-      }),
+      getScriptLock: () => makeLock("script"),
+      getUserLock: () => makeLock("user"),
+      getDocumentLock: () => null, // в веб-приложении Google возвращает null (см. документацию LockService)
     },
     SpreadsheetApp: {
       getActiveSpreadsheet: () => spreadsheet,
@@ -230,9 +237,16 @@ export function createGasEnv(options = {}) {
         .map((values) => Object.fromEntries(headers.map((h, i) => [h, values[i]])));
     },
     logs,
-    /** Другой процесс занял общую блокировку скрипта (до releaseHeldLock) */
-    holdLock() { lockBusy = true; },
-    releaseHeldLock() { lockBusy = false; },
+    /** Другой процесс занял блокировку пользователя — ту, что берут регистрация и заказы */
+    holdUserLock() { locks.user.busy = true; },
+    releaseUserLock() { locks.user.busy = false; },
+    /** Другой процесс (синхронизация каталога по триггеру) занял ОБЩУЮ блокировку скрипта */
+    holdScriptLock() { locks.script.busy = true; },
+    releaseScriptLock() { locks.script.busy = false; },
+    /** Добавляет в «проект» ещё один файл .gs из apps-script/ (например, VBStoreNotify.gs) */
+    loadScript(fileName) {
+      vm.runInContext(fs.readFileSync(path.join(GS_DIR, fileName), "utf8"), sandbox, { filename: fileName });
+    },
     setCatalog(rows) { catalogRows = rows; },
     breakCatalog(value = true) { catalogFails = value; },
     advanceClock(ms) { clockOffsetMs += ms; },

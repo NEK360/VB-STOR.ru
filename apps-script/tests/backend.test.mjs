@@ -549,44 +549,68 @@ describe("совместимость с существующим скрипто�
   });
 });
 
-describe("Занятая блокировка и журнал выполнения", () => {
-  it("register: если блокировку надолго занял другой процесс — быстрый ответ SERVER_BUSY, а не зависание", () => {
+describe("Блокировки и журнал выполнения", () => {
+  it("register: если блокировку записи надолго занял другой запрос — быстрый ответ SERVER_BUSY, а не зависание", () => {
     env.sandbox.vbStoreSetup(); // секреты и листы уже есть — значит, ждём именно блокировку записи
-    env.holdLock();
+    env.holdUserLock();
 
     const res = register();
     assert.equal(res.ok, false);
     assert.equal(res.error.code, "SERVER_BUSY");
     assert.equal(env.rows("USERS").length, 0, "строка пользователя не должна создаться");
-    assert.ok(env.logs.some((l) => /блокировка скрипта занята/.test(l) && /register/.test(l)), env.logs.join("\n"));
+    assert.ok(env.logs.some((l) => /блокировка пользователя занята/.test(l) && /register/.test(l)), env.logs.join("\n"));
 
-    env.releaseHeldLock(); // процесс закончил — та же регистрация проходит, блокировка не «залипла»
+    env.releaseUserLock(); // запрос закончился — та же регистрация проходит, блокировка не «залипла»
     assert.equal(register().ok, true);
     assert.equal(env.rows("USERS").length, 1);
   });
 
-  it("createOrder: занятая блокировка → SERVER_BUSY, заказ не создан; повтор с тем же requestId даёт ровно один заказ", () => {
+  it("createOrder: занятая блокировка записи → SERVER_BUSY, заказ не создан; повтор с тем же requestId даёт ровно один заказ", () => {
     const { token } = session();
     const input = orderInput();
-    env.holdLock();
+    env.holdUserLock();
 
     const busy = createOrder(token, input);
     assert.equal(busy.ok, false);
     assert.equal(busy.error.code, "SERVER_BUSY");
     assert.equal(env.rows("ORDERS").length, 0);
 
-    env.releaseHeldLock();
+    env.releaseUserLock();
     assert.equal(createOrder(token, input).ok, true);
     assert.equal(createOrder(token, input).ok, true); // повторная отправка — тот же заказ
     assert.equal(env.rows("ORDERS").length, 1);
   });
 
-  it("секретов ещё нет и блокировка занята → SERVER_BUSY (без вложенного ожидания)", () => {
-    env.holdLock();
+  it("секретов ещё нет и блокировка записи занята → SERVER_BUSY (без вложенного ожидания)", () => {
+    env.holdUserLock();
     const res = env.call({ action: "me", token: "garbage" });
     assert.equal(res.ok, false);
     assert.equal(res.error.code, "SERVER_BUSY");
     assert.ok(env.logs.some((l) => /getSecret/.test(l)), env.logs.join("\n"));
+  });
+
+  it("регистрация, вход, заказ и история НЕ зависят от общей блокировки скрипта: её может надолго держать ваша синхронизация", () => {
+    env.holdScriptLock(); // как будто синхронизация каталога по триггеру держит её минутами
+    const { token } = session();
+    assert.equal(login().ok, true);
+    const order = createOrder(token, orderInput());
+    assert.equal(order.ok, true, JSON.stringify(order));
+    const mine = env.call({ action: "myOrders", token });
+    assert.equal(mine.ok, true);
+    assert.equal(mine.data.orders.length, 1);
+    assert.ok(!env.logs.some((l) => /блокировка .* занята/.test(l)), env.logs.join("\n"));
+  });
+
+  it("то же, если ваш doGet при чтении каталога берёт общую блокировку скрипта и не отпускает до конца запуска", () => {
+    const { token } = session();
+    const originalDoGet = env.sandbox.doGet;
+    env.sandbox.doGet = (e) => {
+      env.sandbox.LockService.getScriptLock().waitLock(1000); // берёт и не отпускает
+      return originalDoGet(e);
+    };
+    const order = createOrder(token, orderInput());
+    assert.equal(order.ok, true, JSON.stringify(order));
+    assert.equal(env.rows("ORDERS").length, 1);
   });
 
   it("каждый запрос пишет в журнал действие, итог и время", () => {
@@ -602,19 +626,69 @@ describe("Занятая блокировка и журнал выполнени
     );
   });
 
-  it("vbStoreSelfTest показывает скорость таблицы и состояние блокировки, ничего не меняя", () => {
+  it("vbStoreSelfTest показывает скорость таблицы и состояние обеих блокировок, ничего не меняя", () => {
     env.sandbox.vbStoreSetup();
     const before = JSON.stringify(env.rows("USERS"));
     env.sandbox.vbStoreSelfTest();
-    assert.ok(
-      env.logs.some((l) => /Скорость таблицы/.test(l) && /общая блокировка скрипта: свободна/.test(l)),
-      env.logs.join("\n")
-    );
+    const line = env.logs.find((l) => /Скорость таблицы/.test(l));
+    assert.ok(line, env.logs.join("\n"));
+    assert.match(line, /блокировка скрипта \(её может держать ваш код\): до каталога — свободна, после — свободна/);
+    assert.match(line, /блокировка пользователя \(её берут регистрация и заказы\): до каталога — свободна, после — свободна/);
+    assert.match(line, /Блокировки свободны\./);
     assert.equal(JSON.stringify(env.rows("USERS")), before);
+  });
 
-    env.logs.length = 0;
-    env.holdLock();
+  it("vbStoreSelfTest: общую блокировку держит другое выполнение — так и сказано, а регистрация и заказы от неё не зависят", () => {
+    env.sandbox.vbStoreSetup();
+    env.holdScriptLock();
     env.sandbox.vbStoreSelfTest();
-    assert.ok(env.logs.some((l) => /общая блокировка скрипта: ЗАНЯТА/.test(l)), env.logs.join("\n"));
+    const line = env.logs.find((l) => /Скорость таблицы/.test(l));
+    assert.match(line, /блокировка скрипта .*: до каталога — ЗАНЯТА \(ждали \d+ мс\), после — ЗАНЯТА/);
+    assert.match(line, /блокировка пользователя .*: до каталога — свободна, после — свободна/);
+    assert.match(line, /Общую блокировку скрипта держит ДРУГОЕ выполнение вашего проекта/);
+  });
+
+  it("vbStoreSelfTest: если общую блокировку берёт сам ваш doGet — различает это и не винит другое выполнение", () => {
+    env.sandbox.vbStoreSetup();
+    const originalDoGet = env.sandbox.doGet;
+    env.sandbox.doGet = (e) => {
+      env.sandbox.LockService.getScriptLock().waitLock(1000);
+      return originalDoGet(e);
+    };
+    env.sandbox.vbStoreSelfTest();
+    const line = env.logs.find((l) => /Скорость таблицы/.test(l));
+    assert.match(line, /блокировка скрипта .*: до каталога — свободна, после — ЗАНЯТА/);
+    assert.match(line, /Общую блокировку скрипта берёт ваш код чтения каталога \(doGet\)/);
+  });
+
+  it("vbStoreSelfTest: блокировка записи занята — предупреждает, что регистрация и заказы будут отвечать «Сервер сейчас занят»", () => {
+    env.sandbox.vbStoreSetup();
+    env.holdUserLock();
+    env.sandbox.vbStoreSelfTest();
+    const line = env.logs.find((l) => /Скорость таблицы/.test(l));
+    assert.match(line, /блокировка пользователя .*: до каталога — ЗАНЯТА/);
+    assert.match(line, /они будут отвечать «Сервер сейчас занят»/);
+  });
+});
+
+describe("Уведомление о заказе на почту", () => {
+  it("vbStoreNotifyTest отправляет тестовое письмо на адрес владельца (так же выдаётся разрешение на почту)", () => {
+    env.loadScript("VBStoreNotify.gs");
+    const message = env.sandbox.vbStoreNotifyTest();
+    assert.equal(env.mails.length, 1);
+    assert.match(env.mails[0].subject, /новый заказ №ТЕСТ/);
+    assert.match(env.mails[0].body, /Телефон: \+79180000000/);
+    assert.match(env.mails[0].body, /Скидка \(промокод VB5\)/);
+    assert.match(message, /Тестовое письмо отправлено на .+@/);
+  });
+
+  it("настоящий заказ при подключённом VBStoreNotify.gs отправляет письмо с составом заказа", () => {
+    env.loadScript("VBStoreNotify.gs");
+    const { token } = session();
+    const res = createOrder(token, orderInput());
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(env.mails.length, 1);
+    assert.match(env.mails[0].subject, new RegExp(`новый заказ №${res.data.order.orderId}`));
+    assert.match(env.mails[0].body, /Телефон: \+79181234567/);
   });
 });

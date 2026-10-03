@@ -56,8 +56,8 @@ var VBStoreApi = (function () {
     REGISTER_MAX_PER_HOUR: 60,
     ORDERS_MAX_PER_HOUR: 10,
 
-    // Сколько ждать общую блокировку скрипта. Если её надолго занял другой процесс проекта (например,
-    // синхронизация каталога по триггеру), покупатель быстро получит «сервер занят», а не вечную загрузку.
+    // Сколько ждать блокировку записи (см. acquireLock_). Если её надолго занял другой запрос, покупатель
+    // быстро получит «сервер занят», а не вечную загрузку.
     LOCK_WAIT_MS: 10000,
 
     MAX_LINES_PER_ORDER: 30,
@@ -367,17 +367,24 @@ var VBStoreApi = (function () {
     return 0;
   }
 
-  // Берём общую блокировку скрипта, но не дольше LOCK_WAIT_MS. Блокировка общая для ВСЕГО проекта: если её
-  // держит другое выполнение (синхронизация каталога по триггеру, зависший запуск), мы не висим молча до
-  // таймаута браузера, а сразу отвечаем SERVER_BUSY и пишем причину в журнал.
+  // Блокировка записи для регистрации и заказов (нужна, чтобы два запроса не взяли один и тот же номер заказа
+  // и не создали двух одинаковых пользователей).
+  //
+  // Берём БЛОКИРОВКУ ПОЛЬЗОВАТЕЛЯ, а не общую блокировку скрипта (getScriptLock): общую часто держит ВАШ собственный
+  // код — синхронизация каталога по триггеру, сборка каталога — и иногда подолгу; тогда регистрация ждала бы
+  // её и не успевала бы ответить. Блокировка пользователя от неё не зависит. Веб-приложение выполняется «от имени
+  // владельца», то есть для всех покупателей это один и тот же пользователь, и запросы записи по-прежнему идут по очереди.
+  // (Блокировка документа getDocumentLock в веб-приложении недоступна — Google возвращает null.)
+  //
+  // Ждём не дольше LOCK_WAIT_MS и затем сразу отвечаем SERVER_BUSY, пишем причину в журнал.
   function acquireLock_(label) {
-    var lock = LockService.getScriptLock();
+    var lock = LockService.getUserLock();
     var started = Date.now();
     try {
       lock.waitLock(CONFIG.LOCK_WAIT_MS);
     } catch (err) {
-      console.error('VBStoreApi: блокировка скрипта занята дольше ' + CONFIG.LOCK_WAIT_MS + ' мс (' + label + '). ' +
-        'Её держит другое выполнение вашего проекта — например, синхронизация каталога по триггеру. ' +
+      console.error('VBStoreApi: блокировка пользователя занята дольше ' + CONFIG.LOCK_WAIT_MS + ' мс (' + label + '). ' +
+        'Её держит другой запрос записи или ваш код, который тоже берёт getUserLock. ' +
         String(err && err.message ? err.message : err));
       throw new ApiError('SERVER_BUSY');
     }
@@ -988,17 +995,53 @@ var VBStoreApi = (function () {
 
   /** Запустите вручную после подключения: проверяет, что каталог читается. */
   function selfTest() {
+    // Блокировки проверяем ДО чтения каталога: ваш doGet ещё ничего не успел занять
+    var before = probeLocks_();
     var rows = loadCatalogRows_();
     var index = buildCatalogIndex_(rows);
     var message = 'Каталог прочитан: строк ' + rows.length + ', товаров ' + Object.keys(index).length + '.';
     Logger.log(message);
-    Logger.log(measureSheet_());
+    Logger.log(measureSheet_(before));
     return message;
   }
 
-  // Скорость таблицы и состояние общей блокировки — то, от чего зависит, успеют ли регистрация и заказ.
+  function probeLock_(lock) {
+    var started = Date.now();
+    var got = false;
+    try { got = lock.tryLock(2000); } catch (err) { return 'ошибка: ' + String(err && err.message ? err.message : err); }
+    if (got) { lock.releaseLock(); return 'свободна'; }
+    return 'ЗАНЯТА (ждали ' + (Date.now() - started) + ' мс)';
+  }
+
+  function probeLocks_() {
+    return {
+      script: probeLock_(LockService.getScriptLock()),
+      user: probeLock_(LockService.getUserLock())
+    };
+  }
+
+  function isBusy_(text) { return String(text).indexOf('ЗАНЯТА') === 0; }
+
+  // Что значит результат проверки блокировок — простыми словами
+  function lockVerdict_(before, after) {
+    if (isBusy_(before.user) || isBusy_(after.user)) {
+      return 'Блокировку пользователя, которую берут регистрация и заказы, держит другое выполнение: они будут отвечать ' +
+        '«Сервер сейчас занят». Откройте «Выполнения» и «Триггеры».';
+    }
+    if (isBusy_(before.script)) {
+      return 'Общую блокировку скрипта держит ДРУГОЕ выполнение вашего проекта (триггер, синхронизация). ' +
+        'Регистрация и заказы от неё не зависят — у них своя блокировка.';
+    }
+    if (isBusy_(after.script)) {
+      return 'Общую блокировку скрипта берёт ваш код чтения каталога (doGet) и не отпускает до конца запуска. ' +
+        'Регистрация и заказы от неё не зависят — у них своя блокировка.';
+    }
+    return 'Блокировки свободны.';
+  }
+
+  // Скорость таблицы и состояние блокировок — то, от чего зависит, успеют ли регистрация и заказ.
   // Ничего не меняет: «запись» перезаписывает ячейку A1 листа USERS тем же значением.
-  function measureSheet_() {
+  function measureSheet_(before) {
     var lines = [];
     var sheet = null;
     function time(label, fn) {
@@ -1016,16 +1059,11 @@ var VBStoreApi = (function () {
         SpreadsheetApp.flush();
       });
     }
-    var lock = LockService.getScriptLock();
-    var started = Date.now();
-    var got = false;
-    try { got = lock.tryLock(3000); } catch (err) { /* считаем занятой */ }
-    lines.push(got
-      ? 'общая блокировка скрипта: свободна'
-      : 'общая блокировка скрипта: ЗАНЯТА другим выполнением (ждали ' + (Date.now() - started) + ' мс) — ' +
-        'из-за этого регистрация и заказы будут отвечать «сервер занят»');
-    if (got) lock.releaseLock();
-    return 'Скорость таблицы — ' + lines.join('; ') + '.';
+    var after = probeLocks_();
+    before = before || after;
+    lines.push('блокировка скрипта (её может держать ваш код): до каталога — ' + before.script + ', после — ' + after.script);
+    lines.push('блокировка пользователя (её берут регистрация и заказы): до каталога — ' + before.user + ', после — ' + after.user);
+    return 'Скорость таблицы — ' + lines.join('; ') + '. ' + lockVerdict_(before, after);
   }
 
   return {
