@@ -10,7 +10,6 @@ import ProductCard from "../components/ui/ProductCard";
 import { loadProducts, type Product } from "../lib/api";
 import { seo } from "../store-data/seo";
 
-// Категории подборок: пол → отображаемое название
 const GENDER_TABS: { gender: string; label: string }[] = [
   { gender: "Мужской", label: "Мужчинам" },
   { gender: "Женский", label: "Женщинам" },
@@ -18,7 +17,6 @@ const GENDER_TABS: { gender: string; label: string }[] = [
   { gender: "Девочки", label: "Девочкам" },
 ];
 
-// Категории блока миниатюр (Wildberries-стиль)
 const CATEGORY_TILES: {
   label: string;
   gender?: string;
@@ -32,7 +30,11 @@ const CATEGORY_TILES: {
   { label: "Товары", category: "Товары", catalogParam: "category=Товары" },
 ];
 
-function getTopByGender(products: Product[], gender: string, count: number): Product[] {
+function getTopByGender(
+  products: Product[],
+  gender: string,
+  count: number
+): Product[] {
   const normalize = (s: string) => s.trim().toLowerCase();
   return [...products]
     .filter((p) => normalize(p.gender) === normalize(gender))
@@ -85,16 +87,16 @@ export default function HomePage() {
     document.title = seo.home.title;
   }, []);
 
-  // Фильтруем вкладки, у которых есть хоть 1 товар
   const validTabs = useMemo(() => {
     if (allProducts.length === 0) return GENDER_TABS;
     return GENDER_TABS.filter((tab) => {
       const normalize = (s: string) => s.trim().toLowerCase();
-      return allProducts.some((p) => normalize(p.gender) === normalize(tab.gender));
+      return allProducts.some(
+        (p) => normalize(p.gender) === normalize(tab.gender)
+      );
     });
   }, [allProducts]);
 
-  // Автоматическое переключение вкладок каждые 5 секунд
   useEffect(() => {
     if (validTabs.length < 2) return;
 
@@ -105,21 +107,18 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [validTabs.length]);
 
-  // При изменении validTabs убедимся, что индекс не выходит за пределы
   useEffect(() => {
     if (validTabs.length > 0 && genderTabIndex >= validTabs.length) {
       setGenderTabIndex(0);
     }
   }, [validTabs.length, genderTabIndex]);
 
-  // 3 самых дорогих товара текущей вкладки
   const currentTab = validTabs[genderTabIndex] ?? validTabs[0];
   const featuredProducts = useMemo(() => {
     if (!currentTab || allProducts.length === 0) return [];
-    return getTopByGender(allProducts, currentTab.gender, 3);
+    return getTopByGender(allProducts, currentTab.gender, 6);
   }, [allProducts, currentTab]);
 
-  // Изображения для плиток категорий
   const tileImages = useMemo(() => {
     return CATEGORY_TILES.map((tile) => getTileImage(allProducts, tile));
   }, [allProducts]);
@@ -132,7 +131,7 @@ export default function HomePage() {
       {/* Подборка товаров по полу */}
       {allProducts.length > 0 && (
         <section
-          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          className="py-16 md:py-20 w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16"
           aria-labelledby="featured-title"
         >
           <motion.div
@@ -140,7 +139,7 @@ export default function HomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-end justify-between mb-8"
+            className="flex items-end justify-between mb-6 md:mb-8"
           >
             <div>
               <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
@@ -148,7 +147,7 @@ export default function HomePage() {
               </p>
               <h2
                 id="featured-title"
-                className="text-white font-black text-4xl md:text-5xl tracking-tight"
+                className="text-white font-black text-3xl sm:text-4xl md:text-5xl tracking-tight"
               >
                 Лучшее
               </h2>
@@ -158,18 +157,21 @@ export default function HomePage() {
               className="hidden sm:flex items-center gap-2 text-white/50 hover:text-white text-sm transition-colors group"
             >
               Весь каталог
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              <ArrowRight
+                size={16}
+                className="group-hover:translate-x-1 transition-transform"
+              />
             </Link>
           </motion.div>
 
           {/* Табы категорий */}
-          <div className="flex flex-wrap gap-2 mb-8">
+          <div className="flex flex-wrap gap-2 mb-6 md:mb-8">
             {validTabs.map((tab, i) => (
               <button
                 key={tab.gender}
                 type="button"
                 onClick={() => setGenderTabIndex(i)}
-                className={`text-sm px-4 py-2 rounded-xl transition-all font-medium ${
+                className={`text-sm px-4 py-2 rounded-xl transition-all font-medium cursor-pointer ${
                   genderTabIndex === i
                     ? "bg-white text-black"
                     : "bg-white/6 text-white/50 hover:text-white hover:bg-white/10"
@@ -190,14 +192,16 @@ export default function HomePage() {
               transition={{ duration: 0.35 }}
             >
               {featuredProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
                   {featuredProducts.map((product, i) => (
                     <ProductCard key={product.id} product={product} index={i} />
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-white/20 text-lg">Нет товаров в этой категории</p>
+                  <p className="text-white/20 text-lg">
+                    Нет товаров в этой категории
+                  </p>
                 </div>
               )}
             </motion.div>
@@ -205,10 +209,10 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Каталог — все товары (первые 8) */}
+      {/* Каталог — товары */}
       {allProducts.length > 0 && (
         <section
-          className="py-20 max-w-7xl mx-auto px-4 sm:px-6"
+          className="py-16 md:py-20 w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16"
           aria-labelledby="catalog-title"
         >
           <motion.div
@@ -216,7 +220,7 @@ export default function HomePage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-end justify-between mb-12"
+            className="flex items-end justify-between mb-8 md:mb-10"
           >
             <div>
               <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-3">
@@ -224,7 +228,7 @@ export default function HomePage() {
               </p>
               <h2
                 id="catalog-title"
-                className="text-white font-black text-4xl md:text-5xl tracking-tight"
+                className="text-white font-black text-3xl sm:text-4xl md:text-5xl tracking-tight"
               >
                 Товары
               </h2>
@@ -241,13 +245,13 @@ export default function HomePage() {
             </Link>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {allProducts.slice(0, 8).map((product, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
+            {allProducts.slice(0, 12).map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}
           </div>
 
-          <div className="flex justify-center mt-10 mb-20">
+          <div className="flex justify-center mt-10 mb-16">
             <Link
               to="/catalog"
               className="
@@ -278,7 +282,7 @@ export default function HomePage() {
             <p className="text-white/30 text-xs font-medium tracking-[0.3em] uppercase mb-6">
               Категории
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
               {CATEGORY_TILES.map((tile, i) => {
                 const img = tileImages[i];
                 return (

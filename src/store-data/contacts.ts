@@ -15,5 +15,7 @@ export const contacts = {
   region: "Ставропольский край",
   street: "ул. Кирова, 2Г",
   workingHours: "Пн–Вс: 9:00 – 20:00",
-  mapUrl: "https://yandex.ru/maps/?text=Изобильный+ул.+Кирова+2Г",
+  mapUrl: "https://yandex.ru/maps/-/CXaP6RYW",
+  mapEmbedUrl:
+    "https://yandex.ru/map-widget/v1/?oid=198529237580&ol=biz&ll=41.726682%2C45.382788&z=17",
 };

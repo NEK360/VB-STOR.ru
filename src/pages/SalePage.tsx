@@ -36,7 +36,7 @@ export default function SalePage() {
 
   return (
     <main className="min-h-screen pt-20 pb-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -87,7 +87,7 @@ export default function SalePage() {
             <p className="text-white/40 text-lg">Распродажа временно недоступна</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
             {saleProducts.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}

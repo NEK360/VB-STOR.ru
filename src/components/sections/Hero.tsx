@@ -118,7 +118,7 @@ export default function Hero() {
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-white/3 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white/2 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-20">
+      <div className="relative z-10 w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16 pt-24 pb-20">
         <div className="max-w-2xl">
           <AnimatePresence mode="wait">
             <motion.div

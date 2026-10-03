@@ -3,7 +3,12 @@ import { useSearchParams, Link } from "react-router-dom";
 import { Star, CheckCircle, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { reviews, type Review } from "../store-data/reviews";
-import { loadProducts, type Product } from "../lib/api";
+import {
+  getProductIdentifiers,
+  getReviewsForProduct,
+  loadProducts,
+  type Product,
+} from "../lib/api";
 
 function formatDate(dateStr: string): string {
   try {
@@ -28,7 +33,6 @@ function ReviewCard({ review, product, highlighted }: ReviewCardProps) {
 
   useEffect(() => {
     if (highlighted && ref.current) {
-      // Небольшая задержка, чтобы анимация входа успела сработать
       const timer = setTimeout(() => {
         ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 300);
@@ -93,7 +97,7 @@ function ReviewCard({ review, product, highlighted }: ReviewCardProps) {
       {/* Продукт */}
       {product && (
         <Link
-          to={`/product/${product.id}`}
+          to={`/catalog/${product.id}`}
           className="flex items-center gap-2 mb-3 group"
         >
           {product.images?.[0] && (
@@ -104,7 +108,7 @@ function ReviewCard({ review, product, highlighted }: ReviewCardProps) {
               loading="lazy"
             />
           )}
-          <span className="text-white/40 text-xs group-hover:text-white/70 transition-colors truncate max-w-[200px]">
+          <span className="text-white/40 text-xs group-hover:text-white/70 transition-colors truncate max-w-[240px]">
             {product.name}
           </span>
         </Link>
@@ -129,18 +133,17 @@ export default function ReviewsPage() {
       .catch(console.error);
   }, []);
 
+  // Найти продукт для заголовка по любому идентификатору
+  const currentProduct = productParam
+    ? products.find((p) => getProductIdentifiers(p).has(String(productParam).trim()))
+    : undefined;
+
   // Фильтрация отзывов
   const filteredReviews = productParam
-    ? reviews.filter(
-        (r) =>
-          String(r.productId) === String(productParam)
-      )
+    ? currentProduct
+      ? getReviewsForProduct(currentProduct)
+      : reviews.filter((r) => String(r.productId) === String(productParam))
     : reviews;
-
-  // Найти продукт для заголовка
-  const currentProduct = productParam
-    ? products.find((p) => String(p.id) === String(productParam))
-    : undefined;
 
   // Подсчёт средней оценки
   const avgRating =
@@ -151,12 +154,13 @@ export default function ReviewsPage() {
 
   function getProductForReview(review: Review): Product | undefined {
     if (!review.productId) return undefined;
-    return products.find((p) => String(p.id) === String(review.productId));
+    const revId = String(review.productId).trim();
+    return products.find((p) => getProductIdentifiers(p).has(revId));
   }
 
   return (
     <main className="min-h-screen pt-16 pb-32">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Хлебные крошки */}
         <nav
           aria-label="Хлебные крошки"
@@ -176,7 +180,7 @@ export default function ReviewsPage() {
               </Link>
               <span>/</span>
               <Link
-                to={`/product/${currentProduct.id}`}
+                to={`/catalog/${currentProduct.id}`}
                 className="hover:text-white transition-colors truncate max-w-[160px]"
               >
                 {currentProduct.name}
@@ -194,7 +198,7 @@ export default function ReviewsPage() {
           {currentProduct ? (
             <div className="flex items-center gap-4 mb-4">
               <Link
-                to={`/product/${currentProduct.id}`}
+                to={`/catalog/${currentProduct.id}`}
                 className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:border-white/30 transition-all"
                 aria-label="Назад к товару"
               >
@@ -220,7 +224,7 @@ export default function ReviewsPage() {
               </div>
             </div>
           ) : (
-            <h1 className="text-white font-black text-3xl tracking-tight mb-2">
+            <h1 className="text-white font-black text-3xl sm:text-4xl tracking-tight mb-2">
               Все отзывы
             </h1>
           )}
@@ -263,18 +267,17 @@ export default function ReviewsPage() {
             <p className="text-white/40 text-lg">Отзывов пока нет</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredReviews.map((review) => (
               <ReviewCard
-                key={review.id}
+                key={`${review.id}-${review.productId ?? ""}`}
                 review={review}
                 product={
-                  productParam
-                    ? undefined
-                    : getProductForReview(review)
+                  productParam ? undefined : getProductForReview(review)
                 }
                 highlighted={
-                  reviewParam !== null && String(review.id) === String(reviewParam)
+                  reviewParam !== null &&
+                  String(review.id) === String(reviewParam)
                 }
               />
             ))}

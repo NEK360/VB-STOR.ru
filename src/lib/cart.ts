@@ -1,7 +1,7 @@
 import type { Product } from "./api";
 import { addFavorite } from "../hooks/useFavorites";
 import { findPromo, type PromoDefinition } from "./promo";
-import { getMaxQuantity, hasSizes } from "./stock";
+import { getMaxQuantity, getSizeInfo, hasSizes, UNKNOWN_STOCK_CAP } from "./stock";
 import {
   createStore,
   persistStore,
@@ -165,15 +165,98 @@ export function useCartCount(): number {
   return useStoreSelector(cartStore, (state) => countQuantity(state.items));
 }
 
+/** Количество единиц конкретного товара в корзине (по всем размерам/цветам). */
+export function useProductCartCount(productId: string): number {
+  return useStoreSelector(cartStore, (state) =>
+    state.items
+      .filter((i) => String(i.productId) === String(productId))
+      .reduce((sum, i) => sum + i.quantity, 0)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Добавление
 // ---------------------------------------------------------------------------
 
 export type AddToCartResult =
-  | { status: "added" | "increased"; quantity: number; max: number }
-  | { status: "max_reached"; quantity: number; max: number }
+  | { status: "added" | "increased"; quantity: number; max: number; size?: string | null }
+  | { status: "max_reached"; quantity: number; max: number; size?: string | null }
   | { status: "size_required" }
   | { status: "unavailable" };
+
+/**
+ * Быстрое добавление товара в корзину с миниатюры (как на Wildberries):
+ * автоматически подбирает первый доступный размер и цвет и сразу кладёт товар в корзину.
+ */
+export function quickAddToCart(product: Product): AddToCartResult {
+  const defaultColor = product.colors?.[0]?.name ?? null;
+
+  if (!hasSizes(product)) {
+    const res = addToCart(product, { size: null, color: defaultColor, quantity: 1 });
+    if (res.status !== "unavailable") return res;
+  } else {
+    const orderableSizes = product.sizes.filter((s) => getSizeInfo(s).orderable);
+    const availableSizes = product.sizes.filter((s) => s.status !== "unavailable");
+    const candidates =
+      orderableSizes.length > 0
+        ? orderableSizes
+        : availableSizes.length > 0
+          ? availableSizes
+          : product.sizes;
+
+    let lastMaxReached: AddToCartResult | null = null;
+    for (const candidate of candidates) {
+      const res = addToCart(product, {
+        size: candidate.value,
+        color: defaultColor,
+        quantity: 1,
+      });
+      if (res.status === "added" || res.status === "increased") {
+        return { ...res, size: candidate.value };
+      }
+      if (res.status === "max_reached") {
+        lastMaxReached = { ...res, size: candidate.value };
+      }
+    }
+    if (lastMaxReached) return lastMaxReached;
+  }
+
+  // Запасной путь: если у размера не указан stockOffline в данных каталога, всё равно кладём в корзину
+  const fallbackSize = hasSizes(product)
+    ? (product.sizes.find((s) => s.status !== "unavailable")?.value ??
+      product.sizes[0]?.value ??
+      null)
+    : null;
+  const key = makeCartKey(product.id, fallbackSize, defaultColor);
+  const state = cartStore.get();
+  const existing = state.items.find((item) => item.key === key);
+  const snapshot = snapshotOf(product);
+  const cap = UNKNOWN_STOCK_CAP;
+
+  if (existing) {
+    const quantity = Math.min(existing.quantity + 1, cap);
+    cartStore.set({
+      ...state,
+      items: state.items.map((item) =>
+        item.key === key ? { ...item, ...snapshot, quantity } : item
+      ),
+      unselected: state.unselected.filter((k) => k !== key),
+    });
+    return { status: "increased", quantity, max: cap, size: fallbackSize };
+  }
+
+  const item: CartItem = {
+    ...snapshot,
+    key,
+    productId: String(product.id),
+    size: fallbackSize,
+    color: defaultColor,
+    quantity: 1,
+    addedAt: Date.now(),
+  };
+  cartStore.set({ ...state, items: [...state.items, item] });
+  return { status: "added", quantity: 1, max: cap, size: fallbackSize };
+}
 
 export function addToCart(
   product: Product,

@@ -325,7 +325,7 @@ export default function CheckoutPage() {
 
   return (
     <main className="min-h-screen pb-[calc(var(--vb-mobile-nav-h,0px)+7rem)] pt-20 lg:pb-24">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {heading}
 
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
