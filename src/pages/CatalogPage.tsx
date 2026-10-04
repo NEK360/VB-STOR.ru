@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 import { seo } from "../store-data/seo";
 import ProductCard from "../components/ui/ProductCard";
-import { loadProducts, type Product } from "../lib/api";
+import {
+  getCatalogStatus,
+  getInitialProducts,
+  loadProducts,
+  refreshProducts,
+  type Product,
+} from "../lib/api";
 import {
   classifySize,
   getProductMacroGroup,
@@ -61,6 +67,26 @@ function normalize(s: string): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+function CatalogGridSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Загружаем каталог"
+      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5 mt-4"
+    >
+      {Array.from({ length: 12 }, (_, index) => (
+        <div key={index} className="animate-pulse">
+          <div className="aspect-[3/4] rounded-2xl bg-white/[0.06]" />
+          <div className="mt-3 h-4 w-2/3 rounded bg-white/[0.07]" />
+          <div className="mt-2 h-3 w-4/5 rounded bg-white/[0.05]" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-white/[0.04]" />
+        </div>
+      ))}
+      <span className="sr-only">Каталог загружается…</span>
+    </div>
+  );
+}
+
 /**
  * Проверяет, подходит ли товар под выбранные категории.
  * Поддерживает как точные названия категорий («Кроссовки», «Шлепанцы», «Одежда», «Товары»),
@@ -88,8 +114,11 @@ export default function CatalogPage() {
   const [openDropdown, setOpenDropdown] = useState<DropdownKey>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
 
-  const [products, setProducts] = useState<Product[]>([]);
+  // Cache/резервный каталог показываем сразу, не ждём ответа Google Apps Script.
+  const [products, setProducts] = useState<Product[]>(() => getInitialProducts());
   const [productsLoaded, setProductsLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState(false);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
 
   // =========================
   // FILTERS — инициализация из URL
@@ -216,14 +245,21 @@ export default function CatalogPage() {
     let isActive = true;
 
     async function fetchData() {
+      setCatalogError(false);
       try {
-        const data = await loadProducts();
+        const data = catalogAttempt === 0
+          ? await loadProducts()
+          : await refreshProducts({ force: true });
         if (!isActive) return;
-        setProducts(data);
+        if (data.length > 0) setProducts(data);
+        setCatalogError(getCatalogStatus() === "error");
         setProductsLoaded(true);
       } catch (error) {
-        console.error("Ошибка загрузки:", error);
-        if (isActive) setProductsLoaded(true);
+        console.error("Ошибка загрузки каталога:", error);
+        if (isActive) {
+          setCatalogError(true);
+          setProductsLoaded(true);
+        }
       }
     }
 
@@ -231,7 +267,13 @@ export default function CatalogPage() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [catalogAttempt]);
+
+  const retryCatalog = () => {
+    setProductsLoaded(false);
+    setCatalogError(false);
+    setCatalogAttempt((attempt) => attempt + 1);
+  };
 
   // =========================
   // SEO
@@ -256,11 +298,11 @@ export default function CatalogPage() {
   }, [products]);
 
   useEffect(() => {
-    if (!priceInitialized && products.length > 0) {
+    if (!priceInitialized && productsLoaded && products.length > 0) {
       setPriceRange([minPrice, maxPrice]);
       setPriceInitialized(true);
     }
-  }, [priceInitialized, products.length, minPrice, maxPrice]);
+  }, [priceInitialized, productsLoaded, products.length, minPrice, maxPrice]);
 
   // =========================
   // RESTORE SCROLL
@@ -802,13 +844,13 @@ export default function CatalogPage() {
   // Отрисовка сгруппированных размеров (Обувь / Одежда / Товары) в компактном стиле WB
   const renderSizeGroups = (compact = false) => {
     const groups: { key: SizeGroupKey; title: string; list: string[] }[] = [
-      { key: "shoes", title: SIZE_GROUP_LABELS.shoes, list: groupedSizes.shoes },
+      { key: "shoes" as const, title: SIZE_GROUP_LABELS.shoes, list: groupedSizes.shoes },
       {
-        key: "clothing",
+        key: "clothing" as const,
         title: SIZE_GROUP_LABELS.clothing,
         list: groupedSizes.clothing,
       },
-      { key: "items", title: SIZE_GROUP_LABELS.items, list: groupedSizes.items },
+      { key: "items" as const, title: SIZE_GROUP_LABELS.items, list: groupedSizes.items },
     ].filter((g) => g.list.length > 0);
 
     if (groups.length === 0) {
@@ -880,7 +922,11 @@ export default function CatalogPage() {
               Каталог
             </h1>
             <span className="text-white/35 text-xs sm:text-sm font-medium">
-              {filtered.length} товаров
+              {productsLoaded
+                ? `${filtered.length} товаров`
+                : filtered.length > 0
+                  ? `${filtered.length} товаров · обновляем каталог`
+                  : "Загружаем каталог…"}
             </span>
           </div>
         </motion.div>
@@ -1967,31 +2013,79 @@ export default function CatalogPage() {
           )}
         </AnimatePresence>
 
-        {/* PRODUCTS GRID — адаптивная сетка во всю ширину экрана как у WB */}
-        {filtered.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-24"
+        {/* При загрузке не показываем ложное «товары не найдены»; отдаём скелет или сохранённый каталог. */}
+        {catalogError && filtered.length > 0 && (
+          <div
+            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3"
+            role="status"
           >
-            <p className="text-white/20 text-6xl mb-6">🔍</p>
-            <p className="text-white/50 text-lg font-medium">
-              Товары не найдены
+            <p className="text-xs leading-relaxed text-white/55">
+              Не удалось обновить каталог. Пока показаны сохранённые товары.
             </p>
-            <p className="text-white/30 text-sm mt-2 mb-6">
-              Попробуйте изменить или сбросить параметры фильтрации
-            </p>
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#a73afd] text-white text-sm font-semibold hover:bg-[#9327e8] transition-colors cursor-pointer"
-              >
-                <RotateCcw size={15} />
-                Сбросить фильтры
-              </button>
-            )}
-          </motion.div>
+            <button
+              type="button"
+              onClick={retryCatalog}
+              className="shrink-0 rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/15"
+            >
+              Повторить загрузку
+            </button>
+          </div>
+        )}
+
+        {filtered.length === 0 ? (
+          !productsLoaded ? (
+            <CatalogGridSkeleton />
+          ) : catalogError ? (
+            <div className="py-20 text-center" role="status">
+              <p className="mb-3 text-lg font-semibold text-white/70">
+                Не удалось обновить полный каталог
+              </p>
+              <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-white/40">
+                Сейчас не удалось получить данные с сервера. Сбросьте фильтры или попробуйте загрузить каталог ещё раз.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={retryCatalog}
+                  className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+                >
+                  Повторить загрузку
+                </button>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/15"
+                  >
+                    <RotateCcw size={15} />
+                    Сбросить фильтры
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-24"
+            >
+              <p className="text-white/20 text-6xl mb-6">🔍</p>
+              <p className="text-white/50 text-lg font-medium">Товары не найдены</p>
+              <p className="text-white/30 text-sm mt-2 mb-6">
+                Попробуйте изменить или сбросить параметры фильтрации
+              </p>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#a73afd] text-white text-sm font-semibold hover:bg-[#9327e8] transition-colors cursor-pointer"
+                >
+                  <RotateCcw size={15} />
+                  Сбросить фильтры
+                </button>
+              )}
+            </motion.div>
+          )
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5 mt-4">
             {filtered.map((product, index) => (

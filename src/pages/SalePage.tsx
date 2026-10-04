@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Tag } from "lucide-react";
-import { loadProducts, type Product } from "../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../lib/api";
 import { seo } from "../store-data/seo";
 import ProductCard from "../components/ui/ProductCard";
 
 export default function SalePage() {
-  const [saleProducts, setSaleProducts] = useState<Product[]>([]);
+  const [saleProducts, setSaleProducts] = useState<Product[]>(() => {
+    const products = getInitialProducts();
+    const saleItems = products.filter(
+      (product) => product.isSale || (product.discount ?? 0) > 0 || (product.oldPrice ?? 0) > product.price
+    );
+    return saleItems.length > 0 ? saleItems : products.slice(0, 20);
+  });
 
   useEffect(() => {
     let isActive = true;

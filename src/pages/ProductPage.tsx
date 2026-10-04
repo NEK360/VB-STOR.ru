@@ -14,6 +14,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import {
+  getCatalogStatus,
+  getInitialProducts,
   getProductById,
   getReviewsForProduct,
   loadProducts,
@@ -51,16 +53,55 @@ function normalizeStr(s?: string): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+function findProductByRouteId(products: Product[], id?: string): Product | undefined {
+  if (!id) return undefined;
+  return products.find(
+    (item) => String(item.id) === String(id) || String(item.article) === String(id)
+  );
+}
+
+function sortRelatedProducts(all: Product[], product: Product): Product[] {
+  const targetCat = normalizeStr(product.category);
+  const targetGender = normalizeStr(product.gender);
+  const targetMacro = getProductMacroGroup(product.category, product.name);
+
+  return all
+    .filter((item) => String(item.id) !== String(product.id))
+    .sort((a, b) => {
+      const score = (item: Product) => {
+        let value = 0;
+        if (normalizeStr(item.category) === targetCat) value += 100;
+        else if (getProductMacroGroup(item.category, item.name) === targetMacro) value += 50;
+        if (targetGender && normalizeStr(item.gender) === targetGender) value += 25;
+        if (product.brand && normalizeStr(item.brand) === normalizeStr(product.brand)) value += 10;
+        return value;
+      };
+      return score(b) - score(a);
+    });
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(() =>
+    id ? findProductByRouteId(getInitialProducts(), id) ?? null : null
+  );
+  const [related, setRelated] = useState<Product[]>(() => {
+    if (!id) return [];
+    const initialProducts = getInitialProducts();
+    const initialProduct = findProductByRouteId(initialProducts, id);
+    return initialProduct ? sortRelatedProducts(initialProducts, initialProduct) : [];
+  });
+  const [loading, setLoading] = useState(() =>
+    Boolean(id) && !findProductByRouteId(getInitialProducts(), id)
+  );
+  const [catalogError, setCatalogError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (!id) {
       setProduct(null);
       setRelated([]);
+      setCatalogError(false);
       setLoading(false);
       return;
     }
@@ -68,53 +109,43 @@ export default function ProductPage() {
     let isActive = true;
 
     async function load() {
-      setLoading(true);
-      const p = await getProductById(id ?? "");
+      const initialProducts = getInitialProducts();
+      const initialProduct = findProductByRouteId(initialProducts, id);
+      const canRenderCached = Boolean(initialProduct) && retryCount === 0;
 
+      setCatalogError(false);
+      setProduct(canRenderCached ? initialProduct ?? null : null);
+      setRelated(
+        canRenderCached && initialProduct
+          ? sortRelatedProducts(initialProducts, initialProduct)
+          : []
+      );
+      setLoading(!canRenderCached);
+
+      // Если нужный товар уже есть в памяти/localStorage, показываем его сразу.
+      // loadProducts продолжит обновление в фоне и заменит список похожих товаров.
+      const loadedProduct = await getProductById(id ?? "", { force: retryCount > 0 });
       if (!isActive) return;
 
-      setProduct(p ?? null);
-
-      if (!p) {
+      if (!loadedProduct) {
+        setProduct(null);
         setRelated([]);
+        setCatalogError(getCatalogStatus() === "error");
         setLoading(false);
         return;
       }
 
-      const all = await loadProducts();
+      setProduct(loadedProduct);
+      setRelated(sortRelatedProducts(initialProducts, loadedProduct));
+      setLoading(false);
 
+      const allProducts = await loadProducts();
       if (!isActive) return;
 
-      const targetCat = normalizeStr(p.category);
-      const targetGender = normalizeStr(p.gender);
-      const targetMacro = getProductMacroGroup(p.category, p.name);
-
-      // Похожие товары идут до самого конца без ограничений:
-      // сначала та же категория и пол, затем та же категория, затем та же макро-группа, затем остальные товары
-      const sortedRelated = all
-        .filter((x) => String(x.id) !== String(p.id))
-        .sort((a, b) => {
-          const score = (item: Product) => {
-            let s = 0;
-            if (normalizeStr(item.category) === targetCat) s += 100;
-            else if (
-              getProductMacroGroup(item.category, item.name) === targetMacro
-            )
-              s += 50;
-            if (targetGender && normalizeStr(item.gender) === targetGender)
-              s += 25;
-            if (
-              p.brand &&
-              normalizeStr(item.brand) === normalizeStr(p.brand)
-            )
-              s += 10;
-            return s;
-          };
-          return score(b) - score(a);
-        });
-
-      setRelated(sortedRelated);
-      setLoading(false);
+      const latestProduct = findProductByRouteId(allProducts, id) ?? loadedProduct;
+      setProduct(latestProduct);
+      setRelated(sortRelatedProducts(allProducts, latestProduct));
+      setCatalogError(false);
     }
 
     void load();
@@ -122,7 +153,7 @@ export default function ProductPage() {
     return () => {
       isActive = false;
     };
-  }, [id]);
+  }, [id, retryCount]);
 
   const navigate = useNavigate();
   const { isFavorite, toggle } = useFavorites();
@@ -381,15 +412,35 @@ export default function ProductPage() {
   if (!product) {
     return (
       <main className="min-h-screen pt-20 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-white/20 text-6xl mb-6">404</p>
-          <p className="text-white/40 text-lg mb-8">Товар не найден</p>
-          <Link
-            to="/catalog"
-            className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all"
-          >
-            Вернуться в каталог
-          </Link>
+        <div className="max-w-md px-5 text-center">
+          <p className="mb-6 text-6xl font-black text-white/20">
+            {catalogError ? "!" : "404"}
+          </p>
+          <p className="mb-3 text-lg text-white/70">
+            {catalogError ? "Не удалось загрузить карточку товара" : "Товар не найден"}
+          </p>
+          <p className="mb-8 text-sm leading-relaxed text-white/40">
+            {catalogError
+              ? "Каталог временно недоступен. Проверьте соединение и попробуйте ещё раз."
+              : "Возможно, товар был удалён или ссылка указана неверно."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {catalogError && (
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+              >
+                Повторить загрузку
+              </button>
+            )}
+            <Link
+              to="/catalog"
+              className="glass rounded-xl px-5 py-3 text-sm text-white transition-colors hover:bg-white/10"
+            >
+              Вернуться в каталог
+            </Link>
+          </div>
         </div>
       </main>
     );

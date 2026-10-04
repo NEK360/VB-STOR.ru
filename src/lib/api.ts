@@ -1,5 +1,6 @@
 import { reviews, type Review } from "../store-data/reviews";
 import { products as fallbackCatalogProducts } from "../store-data/products";
+import { BACKEND_URL } from "./config";
 import { sortProductSizes } from "./sizes";
 
 export interface Product {
@@ -88,14 +89,19 @@ interface ProductPayload {
   wbUrl?: string;
 }
 
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbzjrIaEGBIaQtD67GKYfi712ZN5c2VILKYrmEyIONMOK_W2cWr4IudBrmzEMc3wb9U82w/exec?action=catalog";
+const API_URL = `${BACKEND_URL}${BACKEND_URL.includes("?") ? "&" : "?"}action=catalog`;
 const CACHE_KEY = "catalog_cache_v2";
+const CATALOG_FRESH_MS = 30_000;
+const CATALOG_REQUEST_TIMEOUT_MS = 10_000;
+const CATALOG_RETRY_DELAY_MS = 15_000;
+
+export type CatalogLoadStatus = "idle" | "loading" | "success" | "error";
 
 let cacheProducts: Product[] | null = null;
-let cachePromise: Promise<Product[]> | null = null;
+let catalogPromise: Promise<Product[]> | null = null;
 let freshAt = 0; // когда каталог последний раз был получен с сервера (а не из localStorage)
-let refreshPromise: Promise<Product[]> | null = null;
+let retryAfter = 0;
+let catalogStatus: CatalogLoadStatus = "idle";
 
 /**
  * Собирает все возможные идентификаторы товара (id, артикул, артикул из ссылки WB и фото WB),
@@ -424,132 +430,132 @@ function groupProducts(products: Product[]): Product[] {
     .filter((product) => product.name || product.brand);
 }
 
-export async function loadProducts(): Promise<Product[]> {
-  if (cacheProducts) {
-    return cacheProducts;
-  }
+/**
+ * Даёт каталог синхронно для первого рендера: сначала память, затем localStorage,
+ * а при первом визите/ошибке — небольшой встроенный резервный каталог.
+ */
+export function getInitialProducts(): Product[] {
+  if (cacheProducts?.length) return cacheProducts;
 
-  if (cachePromise) {
-    return cachePromise;
-  }
-
-  cachePromise = (async () => {
+  try {
     const cached =
       typeof window !== "undefined" ? window.localStorage.getItem(CACHE_KEY) : null;
-
     if (cached) {
-      try {
-        const parsed = JSON.parse(cached) as Product[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          cacheProducts = groupProducts(parsed.map((p) => normalizeProduct(p)));
+      const parsed = JSON.parse(cached) as ProductPayload[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const grouped = groupProducts(parsed.map((item) => normalizeProduct(item)));
+        if (grouped.length > 0) {
+          cacheProducts = grouped;
+          return grouped;
         }
-      } catch {
-        cacheProducts = null;
       }
     }
+  } catch {
+    // Повреждённый/недоступный localStorage не должен блокировать каталог.
+  }
+
+  cacheProducts = groupProducts(
+    (fallbackCatalogProducts as unknown as ProductPayload[]).map(normalizeProduct)
+  );
+  return cacheProducts;
+}
+
+export function getCatalogStatus(): CatalogLoadStatus {
+  return catalogStatus;
+}
+
+function persistCatalogWhenIdle(products: Product[]) {
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    try {
+      window.localStorage.setItem(CACHE_KEY, JSON.stringify(products));
+    } catch {
+      // Переполнен/недоступен localStorage — каталог уже доступен в памяти.
+    }
+  }, 0);
+}
+
+function requestCatalog(force = false): Promise<Product[]> {
+  const initialProducts = getInitialProducts();
+  if (catalogPromise) return catalogPromise;
+
+  if (
+    !force &&
+    freshAt > 0 &&
+    Date.now() - freshAt < CATALOG_FRESH_MS
+  ) {
+    return Promise.resolve(cacheProducts ?? initialProducts);
+  }
+
+  if (!force && Date.now() < retryAfter) {
+    return Promise.resolve(cacheProducts ?? initialProducts);
+  }
+
+  catalogStatus = "loading";
+  catalogPromise = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      CATALOG_REQUEST_TIMEOUT_MS
+    );
 
     try {
-      const res = await fetch(API_URL, {
+      const response = await fetch(API_URL, {
         headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to load products: ${res.status}`);
+      if (!response.ok) {
+        throw new Error(`Catalog request failed: HTTP ${response.status}`);
       }
 
-      const data = (await res.json()) as ProductPayload[];
-
+      const data = (await response.json()) as unknown;
       if (!Array.isArray(data)) {
-        return cacheProducts ?? [];
+        throw new Error("Unexpected catalog response format");
       }
 
-      const normalized = data.map(normalizeProduct);
-      const grouped = groupProducts(normalized);
+      const grouped = groupProducts(
+        (data as ProductPayload[]).map((item) => normalizeProduct(item))
+      );
+      if (grouped.length === 0) {
+        throw new Error("Catalog response contained no products");
+      }
+
       cacheProducts = grouped;
       freshAt = Date.now();
-
-      if (typeof window !== "undefined") {
-        try {
-          window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
-        } catch {
-          // ignore storage quota errors
-        }
-      }
-
+      retryAfter = 0;
+      catalogStatus = "success";
+      persistCatalogWhenIdle(grouped);
       return grouped;
     } catch (error) {
-      if (cacheProducts && cacheProducts.length > 0) {
-        return cacheProducts;
-      }
-      // eslint-disable-next-line no-console
-      console.error("Ошибка загрузки товаров:", error);
-      const fallback = groupProducts(
-        (fallbackCatalogProducts as unknown as ProductPayload[]).map(normalizeProduct)
-      );
-      return fallback;
+      catalogStatus = "error";
+      retryAfter = Date.now() + CATALOG_RETRY_DELAY_MS;
+      // Оставляем last-known-good/резервный каталог на экране вместо пустой страницы.
+      console.warn("Каталог не обновился; показываем сохранённые товары.", error);
+      return cacheProducts ?? initialProducts;
     } finally {
-      cachePromise = null;
+      clearTimeout(timeout);
+      catalogPromise = null;
     }
   })();
 
-  return cachePromise;
+  return catalogPromise;
 }
 
 /**
- * Актуальный каталог для корзины и оформления заказа.
+ * Быстро возвращает сохранённый/резервный список UI сразу после первого рендера,
+ * а сетевой запрос ограничен таймаутом и дедуплицируется для всех потребителей.
  */
-export async function refreshProducts(
+export function loadProducts(): Promise<Product[]> {
+  return requestCatalog(false);
+}
+
+/** Актуальный каталог для корзины и оформления заказа. */
+export function refreshProducts(
   options: { force?: boolean } = {}
 ): Promise<Product[]> {
-  if (cachePromise) {
-    return cachePromise;
-  }
-
-  if (!options.force && cacheProducts && Date.now() - freshAt < 30_000) {
-    return cacheProducts;
-  }
-
-  if (refreshPromise) {
-    return refreshPromise;
-  }
-
-  refreshPromise = (async () => {
-    try {
-      const res = await fetch(API_URL, {
-        headers: { Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to refresh products: ${res.status}`);
-      }
-
-      const data = (await res.json()) as ProductPayload[];
-
-      if (!Array.isArray(data)) {
-        throw new Error("Unexpected catalog format");
-      }
-
-      const grouped = groupProducts(data.map(normalizeProduct));
-      cacheProducts = grouped;
-      freshAt = Date.now();
-
-      try {
-        window.localStorage.setItem(CACHE_KEY, JSON.stringify(grouped));
-      } catch {
-        // переполнен localStorage — данные остаются в памяти
-      }
-
-      return grouped;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Не удалось обновить каталог:", error);
-      return cacheProducts ?? (await loadProducts());
-    } finally {
-      refreshPromise = null;
-    }
-  })();
-
-  return refreshPromise;
+  return requestCatalog(Boolean(options.force));
 }
 
 export async function preloadProduct(id: string): Promise<void> {
@@ -560,12 +566,29 @@ export async function preloadProduct(id: string): Promise<void> {
   }
 }
 
-export async function getProductById(id: string): Promise<Product | undefined> {
-  const products = await loadProducts();
+export async function getProductById(
+  id: string,
+  options: { force?: boolean } = {}
+): Promise<Product | undefined> {
+  const findProduct = (products: Product[]) =>
+    products.find(
+      (product) =>
+        String(product.id) === String(id) || String(product.article) === String(id)
+    );
 
-  return products.find(
-    (p) => String(p.id) === String(id) || String(p.article) === String(id)
-  );
+  if (!options.force) {
+    const cachedProduct = findProduct(getInitialProducts());
+    if (cachedProduct) {
+      // Сразу показываем уже сохранённый товар, а каталог обновляем в фоне.
+      void loadProducts();
+      return cachedProduct;
+    }
+  }
+
+  const products = options.force
+    ? await refreshProducts({ force: true })
+    : await loadProducts();
+  return findProduct(products);
 }
 
 export async function getNewProducts(): Promise<Product[]> {

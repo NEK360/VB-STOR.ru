@@ -7,7 +7,7 @@ import Advantages from "../components/sections/Advantages";
 import ReviewsSection from "../components/sections/ReviewsSection";
 import ContactsSection from "../components/sections/ContactsSection";
 import ProductCard from "../components/ui/ProductCard";
-import { loadProducts, type Product } from "../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../lib/api";
 import { seo } from "../store-data/seo";
 
 const GENDER_TABS: { gender: string; label: string }[] = [
@@ -64,7 +64,7 @@ function getTileImage(
 }
 
 export default function HomePage() {
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>(() => getInitialProducts());
   const [genderTabIndex, setGenderTabIndex] = useState(0);
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { loadProducts } from "../../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../../lib/api";
 import { formatPrice } from "../../lib/utils";
 
 interface HeroSlideData {
@@ -23,10 +23,29 @@ function shorten(text: string, limit = 140) {
   return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
+function getHeroSlides(products: Product[]): HeroSlideData[] {
+  const featured = products
+    .filter((product) => product.images.length > 0 && (product.isFeatured || product.isNew || product.isSale || product.available))
+    .sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || Number(b.isNew) - Number(a.isNew) || b.price - a.price)
+    .slice(0, 3);
+
+  return featured.map((product) => ({
+    id: product.id,
+    title: product.name,
+    subtitle: product.brand || "VB STORE",
+    description: shorten(product.description),
+    primaryButton: { label: "Купить", href: `/catalog/${product.id}` },
+    secondaryButton: { label: "В каталог", href: "/catalog" },
+    image: product.images[0],
+    accentColor: "#ffffff",
+    price: product.price,
+  }));
+}
+
 export default function Hero() {
   const [current, setCurrent] = useState(0);
   const [_imgLoaded, setImgLoaded] = useState(false);
-  const [slides, setSlides] = useState<HeroSlideData[]>([]);
+  const [slides, setSlides] = useState<HeroSlideData[]>(() => getHeroSlides(getInitialProducts()));
 
   useEffect(() => {
     let isActive = true;
@@ -35,24 +54,7 @@ export default function Hero() {
       const products = await loadProducts();
       if (!isActive) return;
 
-      const featured = products
-        .filter((product) => product.images.length > 0 && (product.isFeatured || product.isNew || product.isSale || product.available))
-        .sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || Number(b.isNew) - Number(a.isNew) || b.price - a.price)
-        .slice(0, 3);
-
-      const mapped = featured.map((product) => ({
-        id: product.id,
-        title: product.name,
-        subtitle: product.brand || "VB STORE",
-        description: shorten(product.description),
-        primaryButton: { label: "Купить", href: `/catalog/${product.id}` },
-        secondaryButton: { label: "В каталог", href: "/catalog" },
-        image: product.images[0],
-        accentColor: "#ffffff",
-        price: product.price,
-      }));
-
-      setSlides(mapped);
+      setSlides(getHeroSlides(products));
       setCurrent(0);
     }
 

@@ -1,12 +1,16 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { loadProducts, type Product } from "../../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../../lib/api";
 import ProductCard from "../ui/ProductCard";
 import { useEffect, useState } from "react";
 
 export default function FeaturedProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const allProducts = getInitialProducts();
+    const featuredItems = allProducts.filter((product) => product.isFeatured);
+    return featuredItems.length > 0 ? featuredItems : allProducts.slice(0, 8);
+  });
 
   useEffect(() => {
     let isActive = true;

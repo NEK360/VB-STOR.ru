@@ -3,12 +3,22 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Heart, ArrowRight } from "lucide-react";
 import { useFavorites } from "../hooks/useFavorites";
-import { getProductById, type Product } from "../lib/api";
+import { getInitialProducts, getProductById, type Product } from "../lib/api";
 import ProductCard from "../components/ui/ProductCard";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
-  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>(() => {
+    const products = getInitialProducts();
+    return favorites
+      .map((id) =>
+        products.find(
+          (product) =>
+            String(product.id) === String(id) || String(product.article) === String(id)
+        )
+      )
+      .filter((product): product is Product => Boolean(product));
+  });
 
   useEffect(() => {
     let isActive = true;

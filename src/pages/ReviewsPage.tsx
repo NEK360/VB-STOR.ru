@@ -4,6 +4,7 @@ import { Star, CheckCircle, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { reviews, type Review } from "../store-data/reviews";
 import {
+  getInitialProducts,
   getProductIdentifiers,
   getReviewsForProduct,
   loadProducts,
@@ -125,7 +126,7 @@ export default function ReviewsPage() {
   const productParam = searchParams.get("product");
   const reviewParam = searchParams.get("review");
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => getInitialProducts());
 
   useEffect(() => {
     loadProducts()

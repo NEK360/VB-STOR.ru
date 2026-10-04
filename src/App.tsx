@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import {
   HashRouter,
   Routes,
@@ -9,7 +9,6 @@ import {
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
-import LoadingScreen from "./components/ui/LoadingScreen";
 import CustomCursor from "./components/ui/CustomCursor";
 import Header from "./components/layouts/Header";
 import Footer from "./components/layouts/Footer";
@@ -234,12 +233,9 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [loaded, setLoaded] = useState(false);
-
   return (
     <HashRouter>
       <CustomCursor />
-      {!loaded && <LoadingScreen onComplete={() => setLoaded(true)} />}
       <div className="min-h-screen bg-black text-white">
         <AppRoutes />
       </div>
