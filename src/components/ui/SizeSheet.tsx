@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../../lib/api";
+import { getProductMacroGroup, getShoeInsoleLength } from "../../lib/sizes";
 import { formatPrice } from "../../lib/utils";
 import { getSizeInfo } from "../../lib/stock";
 import ProductSizePicker from "./ProductSizePicker";
@@ -9,7 +10,7 @@ interface SizeSheetProps {
   open: boolean;
   product: Product | null;
   selectedSize: string | null;
-  /** Вызывается сразу при выборе размера */
+  /** Подтверждает выбор размера; для обуви вызывается после просмотра подсказки */
   onSelect: (size: string) => void;
   onClose: () => void;
   /** Цена, которую показываем в шапке шторки (по умолчанию — цена товара) */
@@ -34,12 +35,58 @@ export default function SizeSheet({
     () => (product ? product.sizes.map((size) => ({ size, info: getSizeInfo(size) })) : []),
     [product]
   );
+  const [draftSize, setDraftSize] = useState(selectedSize);
+
+  useEffect(() => {
+    if (open) setDraftSize(selectedSize);
+  }, [open, product?.id, selectedSize]);
 
   const hasOrderable = sizes.some(({ info }) => info.orderable);
   const hasWbOnly = sizes.some(({ info }) => info.wbOnly);
+  const isShoe = Boolean(
+    product && getProductMacroGroup(product.category, product.name) === "shoes"
+  );
+  const hasInsoleChart = Boolean(
+    isShoe && sizes.some(({ size }) =>
+      size.status !== "unavailable" && getShoeInsoleLength(size.value)
+    )
+  );
+  const draftInfo = sizes.find(({ info }) => info.value === draftSize)?.info;
+  const draftInsoleLength = draftSize ? getShoeInsoleLength(draftSize) : null;
+
+  const handleSizeSelect = (size: string) => {
+    if (hasInsoleChart && getShoeInsoleLength(size)) {
+      setDraftSize(size);
+      return;
+    }
+    onSelect(size);
+  };
+
+  const confirmFooter =
+    hasInsoleChart && draftSize && draftInsoleLength && draftInfo?.orderable ? (
+    <button
+      type="button"
+      onClick={() => {
+        if (draftSize) onSelect(draftSize);
+      }}
+      className="w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-black transition-colors hover:bg-white/90"
+    >
+      <span className="block">Выбрать размер {draftSize}</span>
+      {draftInsoleLength && (
+        <span className="mt-0.5 block text-xs font-normal text-black/55">
+          Длина стельки — {draftInsoleLength} см
+        </span>
+      )}
+    </button>
+  ) : undefined;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Выберите размер">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Выберите размер"
+      footer={confirmFooter}
+    >
       {product && (
         <>
           <div className="mb-5 flex items-center gap-3">
@@ -64,10 +111,15 @@ export default function SizeSheet({
           {sizes.length > 0 && (
             <ProductSizePicker
               product={product}
-              selectedSize={selectedSize}
-              onSelect={onSelect}
+              selectedSize={hasInsoleChart ? draftSize : selectedSize}
+              onSelect={handleSizeSelect}
               variant="sheet"
             />
+          )}
+          {hasInsoleChart && (
+            <p className="mt-2 text-xs leading-relaxed text-white/40">
+              Выберите размер, чтобы увидеть длину стельки, затем подтвердите выбор кнопкой ниже.
+            </p>
           )}
 
           {!hasOrderable && (
