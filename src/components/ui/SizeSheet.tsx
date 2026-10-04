@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Product } from "../../lib/api";
 import { formatPrice } from "../../lib/utils";
 import { getSizeInfo } from "../../lib/stock";
+import ProductSizePicker from "./ProductSizePicker";
 import Sheet from "./Sheet";
 
 interface SizeSheetProps {
@@ -61,31 +62,12 @@ export default function SizeSheet({
           </div>
 
           {sizes.length > 0 && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Размеры">
-              {sizes.map(({ size, info }) => {
-                const isSelected = info.orderable && String(selectedSize) === info.value;
-                return (
-                  <button
-                    key={info.value}
-                    type="button"
-                    disabled={!info.orderable}
-                    onClick={() => onSelect(info.value)}
-                    aria-pressed={isSelected}
-                    className={`min-w-[3.25rem] rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                      isSelected
-                        ? "border-white bg-white text-black"
-                        : !info.orderable
-                          ? "cursor-not-allowed border-white/5 bg-white/3 text-white/20 line-through"
-                          : size.status === "low"
-                            ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20"
-                            : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {info.value}
-                  </button>
-                );
-              })}
-            </div>
+            <ProductSizePicker
+              product={product}
+              selectedSize={selectedSize}
+              onSelect={onSelect}
+              variant="sheet"
+            />
           )}
 
           {!hasOrderable && (

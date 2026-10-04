@@ -12,6 +12,33 @@ export const SIZE_GROUP_LABELS: Record<SizeGroupKey, string> = {
   items: "Размеры товаров",
 };
 
+/**
+ * Длина стельки по размерной сетке из карточки товара WB.
+ * Показываем измерения только для целых размеров 36–46, которые есть у товара.
+ */
+const SHOE_INSOLE_LENGTHS_CM: Record<number, string> = {
+  36: "23",
+  37: "23,5",
+  38: "24",
+  39: "24,5",
+  40: "25",
+  41: "26",
+  42: "26,5",
+  43: "27",
+  44: "28",
+  45: "28,5",
+  46: "29",
+};
+
+export function getShoeInsoleLength(sizeValue: string | number): string | null {
+  const match = String(sizeValue)
+    .trim()
+    .match(/^(?:(?:EU|EUR)\s*)?(\d{2})(?:[.,]0+)?(?:\s*(?:р(?:азмер)?\.?))?$/i);
+  if (!match) return null;
+
+  return SHOE_INSOLE_LENGTHS_CM[Number(match[1])] ?? null;
+}
+
 const SHOE_CATEGORY_RE =
   /обув|кроссов|шлепан|шлёпан|лофер|ботильон|ботин|туфл|сабо|сандал|кед|тапоч|сапог|сланц|мокасин|балетк|угг|дутик|челси|оксфорд|дерби|эспадриль/i;
 

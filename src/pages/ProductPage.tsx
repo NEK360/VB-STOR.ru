@@ -38,6 +38,7 @@ import {
 } from "../lib/stock";
 import { toast } from "../lib/toast";
 import ProductCard from "../components/ui/ProductCard";
+import ProductSizePicker from "../components/ui/ProductSizePicker";
 import SizeSheet from "../components/ui/SizeSheet";
 
 type PurchaseIntent = "cart" | "buy";
@@ -726,41 +727,13 @@ export default function ProductPage() {
                   Размер
                 </p>
 
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => {
-                    const isUnavailable = size.status === "unavailable";
-                    const isSelected =
-                      !isUnavailable &&
-                      String(selectedSize) === String(size.value);
-
-                    return (
-                      <button
-                        key={size.value}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => {
-                          if (isUnavailable) return;
-                          setSelectedSize((prev) =>
-                            prev === size.value ? prev : size.value
-                          );
-                        }}
-                        aria-pressed={isSelected}
-                        aria-disabled={isUnavailable}
-                        className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
-                          isSelected
-                            ? "bg-white text-black border-white scale-105"
-                            : isUnavailable
-                              ? "bg-white/3 text-white/20 border-white/5 cursor-not-allowed line-through"
-                              : size.status === "low"
-                                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/20"
-                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                        }`}
-                      >
-                        {size.value}
-                      </button>
-                    );
-                  })}
-                </div>
+                <ProductSizePicker
+                  product={product}
+                  selectedSize={selectedSize}
+                  onSelect={(size) => {
+                    setSelectedSize((prev) => (prev === size ? prev : size));
+                  }}
+                />
               </div>
             )}
 
