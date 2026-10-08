@@ -11,8 +11,19 @@ import {
   ChevronRight,
   Share2,
   ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
-import { getProductById, loadProducts, type Product } from "../lib/api";
+import {
+  getCatalogStatus,
+  getInitialProducts,
+  getProductById,
+  getReviewsForProduct,
+  loadProducts,
+  type Product,
+} from "../lib/api";
+import { getProductMacroGroup } from "../lib/sizes";
+import { fetchProductReviews, type CustomerReview } from "../lib/customerReviews";
+import type { Review } from "../store-data/reviews";
 import { contacts } from "../store-data/contacts";
 import { formatPrice, reviewsWord } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
@@ -22,12 +33,17 @@ import { addToCart, applyPromoCode, clearPromoCode, useCart } from "../lib/cart"
 import { startBuyNow } from "../lib/checkoutSession";
 import { calculateTotals } from "../lib/pricing";
 import { shareProductWithFeedback } from "../lib/share";
-import { getMaxQuantity, getSizeInfoByValue, hasSizes, hasWbStock, isProductOrderable } from "../lib/stock";
+import {
+  getMaxQuantity,
+  getSizeInfoByValue,
+  hasSizes,
+  hasWbStock,
+  isProductOrderable,
+} from "../lib/stock";
 import { toast } from "../lib/toast";
 import ProductCard from "../components/ui/ProductCard";
+import ProductSizePicker from "../components/ui/ProductSizePicker";
 import SizeSheet from "../components/ui/SizeSheet";
-
-// Промокоды теперь описаны в одном месте — lib/promo.ts (раньше список был здесь).
 
 type PurchaseIntent = "cart" | "buy";
 
@@ -35,16 +51,60 @@ const DRAG_THRESHOLD = 10;
 
 type GalleryItem = { type: "video" | "image"; src: string };
 
+function normalizeStr(s?: string): string {
+  return (s ?? "").trim().toLowerCase();
+}
+
+function findProductByRouteId(products: Product[], id?: string): Product | undefined {
+  if (!id) return undefined;
+  return products.find(
+    (item) => String(item.id) === String(id) || String(item.article) === String(id)
+  );
+}
+
+function sortRelatedProducts(all: Product[], product: Product): Product[] {
+  const targetCat = normalizeStr(product.category);
+  const targetGender = normalizeStr(product.gender);
+  const targetMacro = getProductMacroGroup(product.category, product.name);
+
+  return all
+    .filter((item) => String(item.id) !== String(product.id))
+    .sort((a, b) => {
+      const score = (item: Product) => {
+        let value = 0;
+        if (normalizeStr(item.category) === targetCat) value += 100;
+        else if (getProductMacroGroup(item.category, item.name) === targetMacro) value += 50;
+        if (targetGender && normalizeStr(item.gender) === targetGender) value += 25;
+        if (product.brand && normalizeStr(item.brand) === normalizeStr(product.brand)) value += 10;
+        return value;
+      };
+      return score(b) - score(a);
+    });
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<Product | null>(() =>
+    id ? findProductByRouteId(getInitialProducts(), id) ?? null : null
+  );
+  const [related, setRelated] = useState<Product[]>(() => {
+    if (!id) return [];
+    const initialProducts = getInitialProducts();
+    const initialProduct = findProductByRouteId(initialProducts, id);
+    return initialProduct ? sortRelatedProducts(initialProducts, initialProduct) : [];
+  });
+  const [loading, setLoading] = useState(() =>
+    Boolean(id) && !findProductByRouteId(getInitialProducts(), id)
+  );
+  const [catalogError, setCatalogError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
 
   useEffect(() => {
     if (!id) {
       setProduct(null);
       setRelated([]);
+      setCatalogError(false);
       setLoading(false);
       return;
     }
@@ -52,27 +112,43 @@ export default function ProductPage() {
     let isActive = true;
 
     async function load() {
-      setLoading(true);
-      const p = await getProductById(id ?? "");
+      const initialProducts = getInitialProducts();
+      const initialProduct = findProductByRouteId(initialProducts, id);
+      const canRenderCached = Boolean(initialProduct) && retryCount === 0;
 
+      setCatalogError(false);
+      setProduct(canRenderCached ? initialProduct ?? null : null);
+      setRelated(
+        canRenderCached && initialProduct
+          ? sortRelatedProducts(initialProducts, initialProduct)
+          : []
+      );
+      setLoading(!canRenderCached);
+
+      // Если нужный товар уже есть в памяти/localStorage, показываем его сразу.
+      // loadProducts продолжит обновление в фоне и заменит список похожих товаров.
+      const loadedProduct = await getProductById(id ?? "", { force: retryCount > 0 });
       if (!isActive) return;
 
-      setProduct(p ?? null);
-
-      if (!p) {
+      if (!loadedProduct) {
+        setProduct(null);
         setRelated([]);
+        setCatalogError(getCatalogStatus() === "error");
         setLoading(false);
         return;
       }
 
-      const all = await loadProducts();
+      setProduct(loadedProduct);
+      setRelated(sortRelatedProducts(initialProducts, loadedProduct));
+      setLoading(false);
 
+      const allProducts = await loadProducts();
       if (!isActive) return;
 
-      setRelated(
-        all.filter((x) => x.category === p.category && x.id !== p.id).slice(0, 4)
-      );
-      setLoading(false);
+      const latestProduct = findProductByRouteId(allProducts, id) ?? loadedProduct;
+      setProduct(latestProduct);
+      setRelated(sortRelatedProducts(allProducts, latestProduct));
+      setCatalogError(false);
     }
 
     void load();
@@ -80,7 +156,28 @@ export default function ProductPage() {
     return () => {
       isActive = false;
     };
-  }, [id]);
+  }, [id, retryCount]);
+
+  useEffect(() => {
+    if (!product?.id) {
+      setCustomerReviews([]);
+      return;
+    }
+
+    let active = true;
+    fetchProductReviews(String(product.id))
+      .then((reviews) => {
+        if (active) setCustomerReviews(reviews);
+      })
+      .catch(() => {
+        // Пользовательские отзывы дополняют каталог, но не блокируют карточку при сбое сервиса.
+        if (active) setCustomerReviews([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [product?.id]);
 
   const navigate = useNavigate();
   const { isFavorite, toggle } = useFavorites();
@@ -92,7 +189,10 @@ export default function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
 
-  const [sizeSheet, setSizeSheet] = useState<{ open: boolean; intent: PurchaseIntent }>({
+  const [sizeSheet, setSizeSheet] = useState<{
+    open: boolean;
+    intent: PurchaseIntent;
+  }>({
     open: false,
     intent: "cart",
   });
@@ -100,7 +200,6 @@ export default function ProductPage() {
     "about" | "details" | "delivery" | null
   >("about");
 
-  // Применённый промокод общий для карточки, корзины и оформления заказа (lib/cart)
   const { promoCode: appliedPromo } = useCart();
   const [promoCode, setPromoCode] = useState(appliedPromo ?? "");
   const [promoError, setPromoError] = useState(false);
@@ -121,12 +220,26 @@ export default function ProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
-  // При открытии ProductPage скроллим наверх
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, [id]);
 
   const fav = isFavorite(product?.id ?? "");
+
+  const productReviews = useMemo<Review[]>(() => {
+    if (!product) return [];
+    const merged = [...customerReviews, ...getReviewsForProduct(product)];
+    const unique = new Map<string, Review>();
+    merged.forEach((review) => unique.set(review.id, review));
+    return [...unique.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  }, [product, customerReviews]);
+  const reviewsCount = Math.max(product?.reviewsCount ?? 0, productReviews.length);
+  const hasReviews = reviewsCount > 0;
+  const ratingValue = productReviews.length
+    ? Number((productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length).toFixed(1))
+    : product && product.rating > 0
+      ? product.rating
+      : 5;
 
   const gallery = useMemo<GalleryItem[]>(() => {
     if (!product) return [];
@@ -135,7 +248,8 @@ export default function ProductPage() {
     if (p.video && typeof p.video === "string")
       items.push({ type: "video", src: p.video });
     if (Array.isArray(p.videos)) {
-      for (const v of p.videos) if (v) items.push({ type: "video", src: String(v) });
+      for (const v of p.videos)
+        if (v) items.push({ type: "video", src: String(v) });
     }
     const images = Array.isArray(product.images)
       ? product.images
@@ -216,16 +330,18 @@ export default function ProductPage() {
   const shopQty = Number(selectedSizeObj?.stockOffline ?? 0);
   const wbQty = Number(selectedSizeObj?.stockWB ?? 0);
 
-  // Цена с промокодом — единая функция расчёта (lib/pricing → lib/promo)
   const priceTotals = useMemo(
-    () => calculateTotals([{ price: product?.price ?? 0, quantity: 1 }], appliedPromo),
+    () =>
+      calculateTotals(
+        [{ price: product?.price ?? 0, quantity: 1 }],
+        appliedPromo
+      ),
     [product?.price, appliedPromo]
   );
   const promoPercent = priceTotals.discountPercent;
   const finalPrice = priceTotals.total;
 
   const applyPromo = () => {
-    // пустое поле + «Применить» при действующем промокоде — убирает промокод
     if (!promoCode.trim() && appliedPromo) {
       clearPromoCode();
       toast.info("Промокод удалён");
@@ -243,7 +359,6 @@ export default function ProductPage() {
     analytics.applyPromo(result.promo.code, true);
   };
 
-  // «Добавить в корзину» / «Купить сейчас»
   const runPurchase = (intent: PurchaseIntent, size: string | null) => {
     if (!product) return;
     const color = selectedColor || null;
@@ -272,14 +387,17 @@ export default function ProductPage() {
       } else if (result.status === "size_required") {
         setSizeSheet({ open: true, intent });
       } else {
-        toast.error("Этот размер сейчас нельзя заказать на сайте. Выберите другой размер.");
+        toast.error(
+          "Этот размер сейчас нельзя заказать на сайте. Выберите другой размер."
+        );
       }
       return;
     }
 
-    // «Купить сейчас» — сразу оформление заказа (корзина не затрагивается)
     if (getMaxQuantity(product, productSize) <= 0) {
-      toast.error("Этот размер сейчас нельзя заказать на сайте. Выберите другой размер.");
+      toast.error(
+        "Этот размер сейчас нельзя заказать на сайте. Выберите другой размер."
+      );
       return;
     }
     startBuyNow(product, { size: productSize, color });
@@ -289,7 +407,6 @@ export default function ProductPage() {
 
   const handlePurchase = (intent: PurchaseIntent) => {
     if (!product) return;
-    // если у товара есть размеры и размер не выбран — сначала шторка «Выберите размер»
     if (hasSizes(product) && !selectedSize) {
       setSizeSheet({ open: true, intent });
       return;
@@ -304,11 +421,7 @@ export default function ProductPage() {
     }
   };
 
-  // Обработчик кнопки "Назад в каталог":
-  // При клике НЕ очищаем sessionStorage — пусть CatalogPage сам восстановит позицию
   const handleBackToCatalog = () => {
-    // Позиция уже сохранена в sessionStorage при клике на карточку товара
-    // Ничего дополнительно делать не нужно — просто navigate(-1) или Link to /catalog
     window.history.back();
   };
 
@@ -326,37 +439,54 @@ export default function ProductPage() {
   if (!product) {
     return (
       <main className="min-h-screen pt-20 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-white/20 text-6xl mb-6">404</p>
-          <p className="text-white/40 text-lg mb-8">Товар не найден</p>
-          <Link
-            to="/catalog"
-            className="glass text-white px-6 py-3 rounded-xl hover:bg-white/10 transition-all"
-          >
-            Вернуться в каталог
-          </Link>
+        <div className="max-w-md px-5 text-center">
+          <p className="mb-6 text-6xl font-black text-white/20">
+            {catalogError ? "!" : "404"}
+          </p>
+          <p className="mb-3 text-lg text-white/70">
+            {catalogError ? "Не удалось загрузить карточку товара" : "Товар не найден"}
+          </p>
+          <p className="mb-8 text-sm leading-relaxed text-white/40">
+            {catalogError
+              ? "Каталог временно недоступен. Проверьте соединение и попробуйте ещё раз."
+              : "Возможно, товар был удалён или ссылка указана неверно."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {catalogError && (
+              <button
+                type="button"
+                onClick={() => setRetryCount((count) => count + 1)}
+                className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+              >
+                Повторить загрузку
+              </button>
+            )}
+            <Link
+              to="/catalog"
+              className="glass rounded-xl px-5 py-3 text-sm text-white transition-colors hover:bg-white/10"
+            >
+              Вернуться в каталог
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
-  // Что показывать вместо прежней кнопки «Оставить заявку»:
-  //  - размер только на Wildberries → прежняя кнопка «Купить на WB» (на сайте он не продаётся);
-  //  - размера нет нигде → «Нет в наличии»;
-  //  - иначе → «Купить сейчас» и «Добавить в корзину».
   const selectedInfo = getSizeInfoByValue(product, selectedSize);
   const orderableOnSite = isProductOrderable(product);
   const showWbButton =
     Boolean(selectedInfo?.wbOnly) ||
     (!selectedInfo && !orderableOnSite && hasWbStock(product));
-  const showUnavailable = !showWbButton && (Boolean(selectedInfo?.unavailable) || !orderableOnSite);
+  const showUnavailable =
+    !showWbButton && (Boolean(selectedInfo?.unavailable) || !orderableOnSite);
 
   return (
     <main className="min-h-screen pt-16 pb-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         <nav
           aria-label="Хлебные крошки"
-          className="flex items-center gap-2 py-6 text-sm text-white/30"
+          className="flex items-center gap-2 py-5 text-sm text-white/35"
         >
           <Link to="/" className="hover:text-white transition-colors">
             Главная
@@ -369,16 +499,16 @@ export default function ProductPage() {
             Каталог
           </button>
           <span>/</span>
-          <span className="text-white/60 truncate max-w-[200px]">
+          <span className="text-white/60 truncate max-w-[260px]">
             {product.name}
           </span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,540px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-8 lg:gap-12 xl:gap-16 items-start">
           {/* Галерея */}
           <div className="space-y-4">
             <div
-              className="relative aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 select-none cursor-grab active:cursor-grabbing touch-pan-y"
+              className="relative aspect-[3/4] sm:aspect-square rounded-3xl overflow-hidden bg-white/4 border border-white/8 select-none cursor-grab active:cursor-grabbing touch-pan-y"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -491,25 +621,35 @@ export default function ProductPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex flex-col"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="flex flex-col max-w-2xl"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-white/30 text-xs uppercase tracking-widest">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {product.brand && (
+                  <>
+                    <span className="text-white font-bold text-xs uppercase tracking-wider">
+                      {product.brand}
+                    </span>
+                    <span className="text-white/20">·</span>
+                  </>
+                )}
+                <span className="text-white/40 text-xs uppercase tracking-widest">
                   {product.category}
                 </span>
                 {product.gender && (
                   <>
                     <span className="text-white/15">·</span>
-                    <span className="text-white/30 text-xs">{product.gender}</span>
+                    <span className="text-white/40 text-xs">
+                      {product.gender}
+                    </span>
                   </>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => void shareProductWithFeedback(product)}
-                  className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/30 hover:text-white hover:border-white/30 transition-all"
+                  className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-white/40 hover:text-white hover:border-white/30 transition-all"
                   aria-label="Поделиться"
                 >
                   <Share2 size={15} />
@@ -518,8 +658,8 @@ export default function ProductPage() {
                   onClick={() => toggle(product.id)}
                   className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all ${
                     fav
-                      ? "bg-white border-white text-black"
-                      : "border-white/10 text-white/30 hover:text-white hover:border-white/30"
+                      ? "bg-white border-white text-rose-500"
+                      : "border-white/10 text-white/40 hover:text-white hover:border-white/30"
                   }`}
                   aria-label={
                     fav ? "Убрать из избранного" : "Добавить в избранное"
@@ -535,40 +675,43 @@ export default function ProductPage() {
               {product.name}
             </h1>
 
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    size={14}
-                    className={
-                      product.reviewsCount > 0 &&
-                      s <= Math.round(product.rating)
-                        ? "text-yellow-400 fill-yellow-400"
-                        : "text-white/15"
-                    }
-                  />
-                ))}
-              </div>
-              <span className="text-white font-bold text-sm">
-                {product.reviewsCount > 0 ? product.rating : "Нет отзывов"}
-              </span>
-              {product.reviewsCount > 0 ? (
+            {/* Оценка и количество отзывов — показываем только если отзывы/оценки реально есть */}
+            {hasReviews && (
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={14}
+                      className={
+                        s <= Math.round(ratingValue)
+                          ? "text-amber-400 fill-amber-400"
+                          : "text-white/15"
+                      }
+                    />
+                  ))}
+                </div>
+                <span className="text-white font-bold text-sm">
+                  {ratingValue}
+                </span>
                 <Link
                   to={`/reviews?product=${encodeURIComponent(product.id)}`}
-                  className="text-white/40 text-sm underline decoration-white/20 underline-offset-2 hover:text-white transition-colors"
+                  className="text-white/50 text-sm underline decoration-white/25 underline-offset-2 hover:text-white transition-colors"
                 >
-                  {product.reviewsCount} {reviewsWord(product.reviewsCount)}
+                  {reviewsCount} {reviewsWord(reviewsCount)}
                 </Link>
-              ) : (
-                <span className="text-white/30 text-sm">Нет отзывов</span>
-              )}
-            </div>
+              </div>
+            )}
 
-            <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-white font-black text-4xl">
-                {formatPrice(product.price)}{" "}
+            <div className="flex items-baseline gap-3 mb-5">
+              <span className="text-white font-black text-3xl sm:text-4xl">
+                {formatPrice(product.price)}
               </span>
+              {(product.oldPrice ?? 0) > product.price && (
+                <span className="text-white/35 text-lg line-through">
+                  {formatPrice(product.oldPrice ?? 0)}
+                </span>
+              )}
             </div>
 
             {/* Промокод */}
@@ -621,8 +764,7 @@ export default function ProductPage() {
             {product.colors?.length > 0 && (
               <div className="mb-6">
                 <p className="text-white/40 text-xs uppercase tracking-wider mb-3">
-                  Цвет:{" "}
-                  <span className="text-white">{selectedColor}</span>
+                  Цвет: <span className="text-white">{selectedColor}</span>
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {product.colors.map((color) => (
@@ -663,41 +805,13 @@ export default function ProductPage() {
                   Размер
                 </p>
 
-                <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => {
-                    const isUnavailable = size.status === "unavailable";
-                    const isSelected =
-                      !isUnavailable &&
-                      String(selectedSize) === String(size.value);
-
-                    return (
-                      <button
-                        key={size.value}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => {
-                          if (isUnavailable) return;
-                          setSelectedSize((prev) =>
-                            prev === size.value ? prev : size.value
-                          );
-                        }}
-                        aria-pressed={isSelected}
-                        aria-disabled={isUnavailable}
-                        className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${
-                          isSelected
-                            ? "bg-white text-black border-white scale-105"
-                            : isUnavailable
-                              ? "bg-white/3 text-white/20 border-white/5 cursor-not-allowed line-through"
-                              : size.status === "low"
-                                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/20"
-                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                        }`}
-                      >
-                        {size.value}
-                      </button>
-                    );
-                  })}
-                </div>
+                <ProductSizePicker
+                  product={product}
+                  selectedSize={selectedSize}
+                  onSelect={(size) => {
+                    setSelectedSize((prev) => (prev === size ? prev : size));
+                  }}
+                />
               </div>
             )}
 
@@ -782,7 +896,7 @@ export default function ProductPage() {
                   <button
                     type="button"
                     onClick={() => handlePurchase("cart")}
-                    className="min-h-14 rounded-2xl border border-white/25 bg-white/10 px-2 py-3 text-[13px] sm:text-base font-bold leading-tight text-white transition-all hover:bg-white/20 active:scale-[0.99]"
+                    className="min-h-14 rounded-2xl border border-[#a73afd] bg-[#a73afd] px-2 py-3 text-[13px] sm:text-base font-bold leading-tight text-white transition-all hover:bg-[#9327e8] active:scale-[0.99]"
                   >
                     Добавить в корзину
                   </button>
@@ -970,11 +1084,11 @@ export default function ProductPage() {
                       className="overflow-hidden"
                     >
                       <p className="px-4 pb-4 text-sm leading-relaxed text-white/50">
-                        Оформите заказ на сайте: выберите пункт выдачи в Изобильном
-                        или доставку по России (Wildberries, OZON, Яндекс, CDEK,
-                        Почта России). Возможен и самовывоз по адресу г. Изобильный,
-                        ул. Кирова, 2Г. Также можно обратиться через WhatsApp,
-                        Telegram или MAX.
+                        Оформите заказ на сайте: выберите пункт выдачи в
+                        Изобильном или доставку по России (Wildberries, OZON,
+                        Яндекс, CDEK, Почта России). Возможен и самовывоз по
+                        адресу г. Изобильный, ул. Кирова, 2Г. Также можно
+                        обратиться через WhatsApp, Telegram или MAX.
                       </p>
                     </motion.div>
                   )}
@@ -984,16 +1098,102 @@ export default function ProductPage() {
           </motion.div>
         </div>
 
-        {related.length > 0 && (
-          <section className="mt-20" aria-labelledby="related-title">
-            <h2
-              id="related-title"
-              className="text-white font-black text-3xl tracking-tight mb-8"
-            >
-              Похожие товары
-            </h2>
+        {/* Блок отзывов к товару (если есть отзывы) */}
+        {productReviews.length > 0 && (
+          <section className="mt-16 border-t border-white/8 pt-12">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-white font-black text-2xl sm:text-3xl tracking-tight">
+                  Отзывы покупателей
+                </h2>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Star
+                    size={15}
+                    className="text-amber-400 fill-amber-400"
+                  />
+                  <span className="text-white font-bold text-sm">
+                    {ratingValue}
+                  </span>
+                  <span className="text-white/40 text-sm">
+                    · {productReviews.length}{" "}
+                    {reviewsWord(productReviews.length)}
+                  </span>
+                </div>
+              </div>
+              <Link
+                to={`/reviews?product=${encodeURIComponent(product.id)}`}
+                className="text-xs sm:text-sm font-medium text-[#c98bff] hover:text-white transition-colors"
+              >
+                Смотреть все →
+              </Link>
+            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {productReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="glass rounded-2xl p-5 border border-white/8 flex flex-col justify-between gap-3"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-semibold text-sm">
+                          {review.name}
+                        </span>
+                        {review.verified && (
+                          <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px]">
+                            <CheckCircle2 size={12} />
+                            Покупка
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={12}
+                            className={
+                              s <= review.rating
+                                ? "text-amber-400 fill-amber-400"
+                                : "text-white/15"
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-white/75 text-sm leading-relaxed">
+                      {review.text}
+                    </p>
+                  </div>
+                  <p className="text-white/30 text-xs">
+                    {new Date(review.date).toLocaleDateString("ru-RU", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Похожие товары — идут все подряд до конца без обрезки */}
+        {related.length > 0 && (
+          <section className="mt-16 pt-12 border-t border-white/8" aria-labelledby="related-title">
+            <div className="flex items-baseline justify-between gap-4 mb-6">
+              <h2
+                id="related-title"
+                className="text-white font-black text-2xl sm:text-3xl tracking-tight"
+              >
+                Похожие товары
+              </h2>
+              <span className="text-white/35 text-xs sm:text-sm">
+                {related.length} товаров
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
               {related.map((p, i) => (
                 <ProductCard key={p.id} product={p} index={i} />
               ))}
@@ -1002,7 +1202,7 @@ export default function ProductPage() {
         )}
       </div>
 
-      {/* «Выберите размер» — открывается, если нажали «Купить сейчас» / «Добавить в корзину» без размера */}
+      {/* «Выберите размер» */}
       <SizeSheet
         open={sizeSheet.open}
         product={product}

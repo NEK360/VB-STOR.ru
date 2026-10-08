@@ -42,6 +42,14 @@ function orderInput(overrides = {}) {
 function createOrder(token, order) {
   return env.call({ action: "createOrder", token, order });
 }
+function setOrderStatus(orderId, status) {
+  const sheet = env.sheet("ORDERS");
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const rows = env.rows("ORDERS");
+  const index = rows.findIndex((row) => String(row.orderId) === String(orderId));
+  if (index < 0) throw new Error(`Order ${orderId} not found in fixture`);
+  sheet.getRange(index + 2, headers.indexOf("status") + 1).setValue(status);
+}
 
 describe("нормализация телефона", () => {
   const cases = [
@@ -73,7 +81,7 @@ describe("регистрация и вход", () => {
     assert.ok(res.data.expiresAt > Date.now() / 1000);
 
     const me = env.call({ action: "me", token: res.data.token });
-    assert.deepEqual(me, { ok: true, data: { phone: PHONE } });
+    assert.deepEqual(me, { ok: true, data: { phone: PHONE, name: "" } });
   });
 
   it("пароль нигде не хранится в открытом виде; телефон в таблице — текст с «+»", () => {
@@ -161,6 +169,25 @@ describe("регистрация и вход", () => {
     const sheet = env.sheet("USERS");
     for (const key of [...sheet.cells.keys()]) if (key.startsWith("2,")) sheet.cells.delete(key);
     assert.equal(env.call({ action: "me", token }).error.code, "UNAUTHORIZED");
+  });
+
+  it("изменяет имя профиля, нормализует пробелы и возвращает имя при me и новом входе", () => {
+    const { token } = session();
+    const saved = env.call({ action: "updateProfile", token, name: "  Анна   Петрова\n" });
+    assert.deepEqual(saved, { ok: true, data: { phone: PHONE, name: "Анна Петрова" } });
+    assert.deepEqual(env.call({ action: "me", token }), {
+      ok: true,
+      data: { phone: PHONE, name: "Анна Петрова" },
+    });
+    assert.equal(login().data.name, "Анна Петрова");
+    assert.equal(env.rows("USERS")[0].displayName, "Анна Петрова");
+  });
+
+  it("не принимает пустое или слишком длинное имя профиля и не меняет его без входа", () => {
+    const { token } = session();
+    assert.equal(env.call({ action: "updateProfile", token, name: "   " }).error.code, "VALIDATION");
+    assert.equal(env.call({ action: "updateProfile", token, name: "я".repeat(61) }).error.code, "VALIDATION");
+    assert.equal(env.call({ action: "updateProfile", name: "Новый пользователь" }).error.code, "UNAUTHORIZED");
   });
 });
 
@@ -780,10 +807,69 @@ describe("Запись заказа в таблицу: место, чужие с
     env.sandbox.vbStoreSelfTest();
     const line = env.logs.find((l) => /^Таблица «/.test(l));
     assert.ok(line, env.logs.join("\n"));
-    assert.match(line, /листы: USERS, ORDERS, order/);
+    assert.match(line, /листы: USERS, ORDERS, REVIEWS, order/);
     assert.match(line, /лист ORDERS: заказов 1, последний в строке 2/);
     assert.match(line, /лист USERS: пользователей 1, последний в строке 2/);
     assert.match(line, /ВНИМАНИЕ: есть похожие листы \(order\)/);
+  });
+});
+
+describe("Отзывы покупателей", () => {
+  it("создаёт отзыв только на свой доставленный товар, требует рейтинг и не требует текста", () => {
+    const { token } = session();
+    const orderResult = createOrder(token, orderInput());
+    assert.equal(orderResult.ok, true, JSON.stringify(orderResult));
+    const orderId = orderResult.data.order.orderId;
+    const input = { orderId, productId: "9002", size: "42", color: null, rating: 5, text: "" };
+
+    assert.equal(env.call({ action: "createReview", ...input }).error.code, "UNAUTHORIZED");
+    assert.equal(env.call({ action: "createReview", token, ...input, rating: 0 }).error.code, "VALIDATION");
+    assert.equal(env.call({ action: "createReview", token, ...input, rating: 6 }).error.code, "VALIDATION");
+    assert.equal(env.call({ action: "createReview", token, ...input }).error.code, "ORDER_NOT_DELIVERED");
+
+    setOrderStatus(orderId, "Доставлен");
+    assert.equal(
+      env.call({ action: "createReview", token, ...input, productId: "9001" }).error.code,
+      "REVIEW_NOT_ALLOWED"
+    );
+
+    const created = env.call({ action: "createReview", token, ...input });
+    assert.equal(created.ok, true, JSON.stringify(created));
+    assert.equal(created.data.review.rating, 5);
+    assert.equal(created.data.review.text, "");
+    assert.equal(created.data.review.authorName, "Покупатель");
+    assert.equal(created.data.review.orderId, orderId);
+    assert.equal(env.rows("REVIEWS").length, 1);
+
+    assert.equal(env.call({ action: "createReview", token, ...input }).error.code, "REVIEW_EXISTS");
+    const mine = env.call({ action: "myReviews", token });
+    assert.equal(mine.ok, true);
+    assert.equal(mine.data.reviews.length, 1);
+    assert.equal(mine.data.reviews[0].orderId, orderId);
+
+    const publicReviews = env.call({ action: "productReviews", productId: "9002" });
+    assert.equal(publicReviews.ok, true);
+    assert.equal(publicReviews.data.reviews.length, 1);
+    assert.equal(publicReviews.data.reviews[0].rating, 5);
+    assert.equal(Object.hasOwn(publicReviews.data.reviews[0], "orderId"), false);
+    assert.equal(Object.hasOwn(publicReviews.data.reviews[0], "userPhone"), false);
+  });
+
+  it("чужой пользователь не может оценить заказ, а неподтверждённый статус не считается доставкой", () => {
+    const { token } = session();
+    const order = createOrder(token, orderInput());
+    assert.equal(order.ok, true, JSON.stringify(order));
+    const orderId = order.data.order.orderId;
+    setOrderStatus(orderId, "Не доставлен");
+    const input = { orderId, productId: "9002", size: "42", color: null, rating: 4 };
+    assert.equal(env.call({ action: "createReview", token, ...input }).error.code, "ORDER_NOT_DELIVERED");
+
+    const other = register("+79187654321");
+    setOrderStatus(orderId, "Доставлен");
+    assert.equal(
+      env.call({ action: "createReview", token: other.data.token, ...input }).error.code,
+      "ORDER_NOT_FOUND"
+    );
   });
 });
 

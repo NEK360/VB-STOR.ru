@@ -122,7 +122,7 @@ export default function CartPage() {
   if (cart.items.length === 0) {
     return (
       <main className="min-h-screen pb-[calc(var(--vb-mobile-nav-h,0px)+6rem)] pt-20">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
           <h1 className="pb-5 pt-6 text-3xl font-black tracking-tight text-white sm:pt-10 sm:text-5xl">
             Корзина
           </h1>
@@ -153,7 +153,7 @@ export default function CartPage() {
 
   return (
     <main className="min-h-screen pb-[calc(var(--vb-mobile-nav-h,0px)+7rem)] pt-20 lg:pb-24">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         <header className="pb-5 pt-6 sm:pt-10">
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">Корзина</h1>
           <p className="mt-2 text-sm text-white/40">{itemsWord(cart.count)}</p>

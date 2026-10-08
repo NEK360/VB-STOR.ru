@@ -1,12 +1,16 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { loadProducts, type Product } from "../../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../../lib/api";
 import ProductCard from "../ui/ProductCard";
 import { useEffect, useState } from "react";
 
 export default function FeaturedProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const allProducts = getInitialProducts();
+    const featuredItems = allProducts.filter((product) => product.isFeatured);
+    return featuredItems.length > 0 ? featuredItems : allProducts.slice(0, 8);
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -28,7 +32,7 @@ export default function FeaturedProducts() {
   }, []);
 
   return (
-    <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6" aria-labelledby="featured-title">
+    <section className="py-20 w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16" aria-labelledby="featured-title">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
@@ -53,7 +57,7 @@ export default function FeaturedProducts() {
       </motion.div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
         {products.map((product, i) => (
           <ProductCard key={product.id} product={product} index={i} />
         ))}

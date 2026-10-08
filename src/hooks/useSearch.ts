@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { loadProducts, type Product } from "../lib/api";
+import { getInitialProducts, loadProducts, type Product } from "../lib/api";
 
 export function useSearch() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() => getInitialProducts());
 
   useEffect(() => {
     let isActive = true;

@@ -3,12 +3,22 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Heart, ArrowRight } from "lucide-react";
 import { useFavorites } from "../hooks/useFavorites";
-import { getProductById, type Product } from "../lib/api";
+import { getInitialProducts, getProductById, type Product } from "../lib/api";
 import ProductCard from "../components/ui/ProductCard";
 
 export default function FavoritesPage() {
   const { favorites } = useFavorites();
-  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>(() => {
+    const products = getInitialProducts();
+    return favorites
+      .map((id) =>
+        products.find(
+          (product) =>
+            String(product.id) === String(id) || String(product.article) === String(id)
+        )
+      )
+      .filter((product): product is Product => Boolean(product));
+  });
 
   useEffect(() => {
     let isActive = true;
@@ -38,7 +48,7 @@ export default function FavoritesPage() {
 
   return (
     <main className="min-h-screen pt-20 pb-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -74,7 +84,7 @@ export default function FavoritesPage() {
             </Link>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 min-[1920px]:grid-cols-7 gap-3 sm:gap-4 md:gap-5">
             {favoriteProducts.map((product, i) => (
               <ProductCard key={product.id} product={product} index={i} />
             ))}

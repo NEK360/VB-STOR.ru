@@ -1,14 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Product } from "../../lib/api";
+import { getProductMacroGroup, getShoeInsoleLength } from "../../lib/sizes";
 import { formatPrice } from "../../lib/utils";
 import { getSizeInfo } from "../../lib/stock";
+import ProductSizePicker from "./ProductSizePicker";
 import Sheet from "./Sheet";
 
 interface SizeSheetProps {
   open: boolean;
   product: Product | null;
   selectedSize: string | null;
-  /** Вызывается сразу при выборе размера */
+  /** Подтверждает выбор размера; для обуви вызывается после просмотра подсказки */
   onSelect: (size: string) => void;
   onClose: () => void;
   /** Цена, которую показываем в шапке шторки (по умолчанию — цена товара) */
@@ -33,12 +35,58 @@ export default function SizeSheet({
     () => (product ? product.sizes.map((size) => ({ size, info: getSizeInfo(size) })) : []),
     [product]
   );
+  const [draftSize, setDraftSize] = useState(selectedSize);
+
+  useEffect(() => {
+    if (open) setDraftSize(selectedSize);
+  }, [open, product?.id, selectedSize]);
 
   const hasOrderable = sizes.some(({ info }) => info.orderable);
   const hasWbOnly = sizes.some(({ info }) => info.wbOnly);
+  const isShoe = Boolean(
+    product && getProductMacroGroup(product.category, product.name) === "shoes"
+  );
+  const hasInsoleChart = Boolean(
+    isShoe && sizes.some(({ size, info }) =>
+      info.orderable && getShoeInsoleLength(size.value)
+    )
+  );
+  const draftInfo = sizes.find(({ info }) => info.value === draftSize)?.info;
+  const draftInsoleLength = draftSize ? getShoeInsoleLength(draftSize) : null;
+
+  const handleSizeSelect = (size: string) => {
+    if (hasInsoleChart && getShoeInsoleLength(size)) {
+      setDraftSize(size);
+      return;
+    }
+    onSelect(size);
+  };
+
+  const confirmFooter =
+    hasInsoleChart && draftSize && draftInsoleLength && draftInfo?.orderable ? (
+    <button
+      type="button"
+      onClick={() => {
+        if (draftSize) onSelect(draftSize);
+      }}
+      className="w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-black transition-colors hover:bg-white/90"
+    >
+      <span className="block">Выбрать размер {draftSize}</span>
+      {draftInsoleLength && (
+        <span className="mt-0.5 block text-xs font-normal text-black/55">
+          Длина стельки — {draftInsoleLength} см
+        </span>
+      )}
+    </button>
+  ) : undefined;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Выберите размер">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Выберите размер"
+      footer={confirmFooter}
+    >
       {product && (
         <>
           <div className="mb-5 flex items-center gap-3">
@@ -61,31 +109,17 @@ export default function SizeSheet({
           </div>
 
           {sizes.length > 0 && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Размеры">
-              {sizes.map(({ size, info }) => {
-                const isSelected = info.orderable && String(selectedSize) === info.value;
-                return (
-                  <button
-                    key={info.value}
-                    type="button"
-                    disabled={!info.orderable}
-                    onClick={() => onSelect(info.value)}
-                    aria-pressed={isSelected}
-                    className={`min-w-[3.25rem] rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                      isSelected
-                        ? "border-white bg-white text-black"
-                        : !info.orderable
-                          ? "cursor-not-allowed border-white/5 bg-white/3 text-white/20 line-through"
-                          : size.status === "low"
-                            ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20"
-                            : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {info.value}
-                  </button>
-                );
-              })}
-            </div>
+            <ProductSizePicker
+              product={product}
+              selectedSize={hasInsoleChart ? draftSize : selectedSize}
+              onSelect={handleSizeSelect}
+              variant="sheet"
+            />
+          )}
+          {hasInsoleChart && (
+            <p className="mt-2 text-xs leading-relaxed text-white/40">
+              Выберите размер, чтобы увидеть длину стельки, затем подтвердите выбор кнопкой ниже.
+            </p>
           )}
 
           {!hasOrderable && (

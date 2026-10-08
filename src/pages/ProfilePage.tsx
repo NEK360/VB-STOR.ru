@@ -1,27 +1,57 @@
-import { useEffect } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronRight, ClipboardList, Heart, LogOut, ShoppingBag, UserRound } from "lucide-react";
-import { logoutUser, useAuth } from "../lib/auth";
+import { Check, ChevronRight, ClipboardList, Heart, LogOut, ShoppingBag, UserRound } from "lucide-react";
+import { getErrorMessage } from "../lib/backend";
+import { logoutUser, updateProfileName, useAuth } from "../lib/auth";
 import { useCartCount } from "../lib/cart";
 import { formatPhone } from "../lib/phone";
 import { toast } from "../lib/toast";
 import { useFavorites } from "../hooks/useFavorites";
 import AuthPanel from "../components/ui/AuthPanel";
 
-/**
- * Профиль. Без входа — вход и регистрация; после входа — «Мой профиль»
- * с телефоном и короткими ссылками (без лишних разделов).
- */
+/** Профиль: вход без авторизации и редактирование имени после входа. */
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { isAuthenticated, phone } = useAuth();
+  const { isAuthenticated, phone, name } = useAuth();
   const cartCount = useCartCount();
   const { count: favoritesCount } = useFavorites();
+  const [nameDraft, setNameDraft] = useState(name);
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
     document.title = (isAuthenticated ? "Мой профиль" : "Вход и регистрация") + " — VB STORE";
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setNameDraft(name);
+  }, [name]);
+
+  const saveName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (savingName) return;
+    setNameError("");
+    const normalized = nameDraft.trim().replace(/\s+/g, " ");
+    if (!normalized) {
+      setNameError("Введите имя");
+      return;
+    }
+    if (normalized === name) {
+      toast.info("Имя не изменилось");
+      return;
+    }
+
+    setSavingName(true);
+    try {
+      await updateProfileName(normalized);
+      toast.success("Имя профиля сохранено");
+    } catch (error) {
+      setNameError(getErrorMessage(error));
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -65,6 +95,38 @@ export default function ProfilePage() {
             <p className="truncate text-lg font-bold text-white">{formatPhone(phone)}</p>
           </div>
         </div>
+
+        <form onSubmit={saveName} className="glass mb-6 rounded-2xl p-4">
+          <label htmlFor="profile-name" className="mb-2 block text-xs font-medium text-white/45">
+            Имя профиля
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="profile-name"
+              type="text"
+              value={nameDraft}
+              onChange={(event) => {
+                setNameDraft(event.target.value);
+                setNameError("");
+              }}
+              maxLength={60}
+              autoComplete="name"
+              placeholder="Как к вам обращаться"
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/30"
+            />
+            <button
+              type="submit"
+              disabled={savingName || !nameDraft.trim() || nameDraft.trim().replace(/\s+/g, " ") === name}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-3.5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+            >
+              {savingName ? "Сохраняем…" : <><Check size={16} /> Сохранить</>}
+            </button>
+          </div>
+          {nameError && <p role="alert" className="mt-2 text-xs text-rose-300">{nameError}</p>}
+          {!name && !nameError && (
+            <p className="mt-2 text-xs text-white/35">Добавьте имя — оно будет отображаться в отзывах.</p>
+          )}
+        </form>
 
         <nav className="glass mb-6 overflow-hidden rounded-2xl" aria-label="Разделы профиля">
           {links.map(({ to, label, icon: Icon, badge }, index) => (

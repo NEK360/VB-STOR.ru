@@ -17,7 +17,7 @@ export default function ReviewsSection() {
 
   return (
     <section className="py-20" aria-labelledby="reviews-title">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="w-full px-3 sm:px-5 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
