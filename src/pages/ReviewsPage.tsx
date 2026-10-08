@@ -10,6 +10,7 @@ import {
   loadProducts,
   type Product,
 } from "../lib/api";
+import { fetchProductReviews, type CustomerReview } from "../lib/customerReviews";
 
 function formatDate(dateStr: string): string {
   try {
@@ -127,6 +128,7 @@ export default function ReviewsPage() {
   const reviewParam = searchParams.get("review");
 
   const [products, setProducts] = useState<Product[]>(() => getInitialProducts());
+  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
 
   useEffect(() => {
     loadProducts()
@@ -139,10 +141,25 @@ export default function ReviewsPage() {
     ? products.find((p) => getProductIdentifiers(p).has(String(productParam).trim()))
     : undefined;
 
-  // Фильтрация отзывов
-  const filteredReviews = productParam
+  // Для страницы отзывов конкретного товара добавляем отзывы с backend.
+  useEffect(() => {
+    if (!currentProduct?.id) {
+      setCustomerReviews([]);
+      return;
+    }
+    let active = true;
+    fetchProductReviews(String(currentProduct.id))
+      .then((items) => { if (active) setCustomerReviews(items); })
+      .catch(() => { if (active) setCustomerReviews([]); });
+    return () => { active = false; };
+  }, [currentProduct?.id]);
+
+  // Фильтрация отзывов; публичные отзывы с сервера доступны на странице товара.
+  const filteredReviews: Review[] = productParam
     ? currentProduct
-      ? getReviewsForProduct(currentProduct)
+      ? [...new Map(
+          [...customerReviews, ...getReviewsForProduct(currentProduct)].map((review) => [review.id, review])
+        ).values()]
       : reviews.filter((r) => String(r.productId) === String(productParam))
     : reviews;
 

@@ -9,10 +9,13 @@
  *   register     — регистрация по телефону и паролю (пароль не хранится и не передаётся
  *                  открытым текстом — см. «Безопасность» ниже);
  *   login        — вход, выдаёт токен сессии;
- *   me           — проверка токена;
+ *   me           — проверка токена и чтение имени профиля;
+ *   updateProfile — сохранение имени профиля;
  *   createOrder  — создание заказа: проверка цен/остатков/промокода по каталогу и
  *                  запись строки в лист ORDERS;
- *   myOrders     — история заказов текущего пользователя.
+ *   myOrders     — история заказов текущего пользователя;
+ *   myReviews    — отзывы текущего пользователя;
+ *   createReview — отзыв только на товар из доставленного заказа.
  *
  * Безопасность:
  *   - сайт отправляет не пароль, а ключ, выведенный из него в браузере (PBKDF2-SHA256,
@@ -47,6 +50,7 @@ var VBStoreApi = (function () {
     // скрипт создаёт новый (поэтому переименованный лист «orders» заказы не получит).
     USERS_SHEET: 'USERS',
     ORDERS_SHEET: 'ORDERS',
+    REVIEWS_SHEET: 'REVIEWS',
 
     // Номера заказов начинаются с этого числа (если в ORDERS уже есть заказы — продолжится после них)
     ORDER_NUMBER_START: 10001,
@@ -107,9 +111,9 @@ var VBStoreApi = (function () {
   // Замеры времени текущего запроса: попадают в журнал выполнения (см. logTiming_)
   var perf_ = {};
 
-  var USER_HEADERS = ['phone', 'passwordHash', 'salt', 'createdAt', 'lastLoginAt', 'sessionVersion'];
+  var USER_HEADERS = ['phone', 'passwordHash', 'salt', 'createdAt', 'lastLoginAt', 'sessionVersion', 'displayName'];
   var USER_FORMATS = {
-    phone: '@', passwordHash: '@', salt: '@',
+    phone: '@', passwordHash: '@', salt: '@', displayName: '@',
     createdAt: 'dd.MM.yyyy HH:mm:ss', lastLoginAt: 'dd.MM.yyyy HH:mm:ss', sessionVersion: '0'
   };
 
@@ -124,6 +128,15 @@ var VBStoreApi = (function () {
     total: '#,##0', promoCode: '@', discount: '#,##0', deliveryType: '@', deliveryService: '@',
     pickupAddress: '@', paymentMethod: '@', status: '@', subtotal: '#,##0', itemsJson: '@', requestId: '@',
     deliveryPrice: '@'
+  };
+
+  var REVIEW_HEADERS = [
+    'reviewId', 'createdAt', 'userPhone', 'orderId', 'productId', 'itemKey',
+    'size', 'color', 'rating', 'text', 'authorName'
+  ];
+  var REVIEW_FORMATS = {
+    reviewId: '@', createdAt: 'dd.MM.yyyy HH:mm:ss', userPhone: '@', orderId: '@',
+    productId: '@', itemKey: '@', size: '@', color: '@', rating: '0', text: '@', authorName: '@'
   };
 
   // ==========================================================================
@@ -274,12 +287,13 @@ var VBStoreApi = (function () {
     return payload;
   }
 
-  function issueSession_(phone, version) {
+  function issueSession_(phone, version, displayName) {
     var now = nowSeconds_();
     var expiresAt = now + CONFIG.SESSION_DAYS * 86400;
     return {
       token: signToken_({ p: phone, e: expiresAt, v: version, i: now }),
       phone: phone,
+      name: String(displayName || ''),
       expiresAt: expiresAt
     };
   }
@@ -391,6 +405,10 @@ var VBStoreApi = (function () {
     return sheet;
   }
 
+  function ensureReviewsSheet_() {
+    return ensureSheet_(CONFIG.REVIEWS_SHEET, REVIEW_HEADERS);
+  }
+
   function findUserRow_(sheet, map, phone) {
     var last = sheet.getLastRow();
     if (last < 2 || !map.phone) return 0;
@@ -483,11 +501,12 @@ var VBStoreApi = (function () {
         salt: salt,
         createdAt: now,
         lastLoginAt: now,
-        sessionVersion: 1
+        sessionVersion: 1,
+        displayName: ''
       }, USER_FORMATS, 'phone');
 
       bumpCount_(globalKey, 3600);
-      return issueSession_(phone, 1);
+      return issueSession_(phone, 1, '');
     }, 'register');
   }
 
@@ -506,10 +525,12 @@ var VBStoreApi = (function () {
     var storedHash = '';
     var salt = 'no-such-user'; // хэшируем и для несуществующего номера — время ответа не выдаёт, есть ли такой номер
     var version = 1;
+    var displayName = '';
     if (rowIndex) {
       storedHash = String(sheet.getRange(rowIndex, map.passwordHash).getValue());
       salt = String(sheet.getRange(rowIndex, map.salt).getValue());
       version = Number(sheet.getRange(rowIndex, map.sessionVersion).getValue()) || 1;
+      displayName = map.displayName ? String(sheet.getRange(rowIndex, map.displayName).getValue() || '') : '';
     }
 
     var matches = safeEqual_(hashPassword_(proof, salt), storedHash) && rowIndex > 0;
@@ -520,10 +541,10 @@ var VBStoreApi = (function () {
 
     CacheService.getScriptCache().remove(failKey);
     sheet.getRange(rowIndex, map.lastLoginAt).setValue(new Date());
-    return issueSession_(phone, version);
+    return issueSession_(phone, version, displayName);
   }
 
-  /** Проверяет токен и то, что пользователь существует. Возвращает { phone }. */
+  /** Проверяет токен и то, что пользователь существует. Возвращает телефон, имя и строку пользователя. */
   function authenticate_(token) {
     var payload = verifyToken_(token);
     var sheet = ensureUsersSheet_();
@@ -533,12 +554,34 @@ var VBStoreApi = (function () {
 
     var version = Number(sheet.getRange(rowIndex, map.sessionVersion).getValue()) || 1;
     if (version !== Number(payload.v)) throw new ApiError('UNAUTHORIZED');
-    return { phone: payload.p };
+    return {
+      phone: payload.p,
+      name: map.displayName ? String(sheet.getRange(rowIndex, map.displayName).getValue() || '') : '',
+      rowIndex: rowIndex
+    };
   }
 
   function me_(body) {
     var user = authenticate_(body.token);
-    return { phone: user.phone };
+    return { phone: user.phone, name: user.name };
+  }
+
+  function updateProfile_(body) {
+    var user = authenticate_(body.token);
+    var name = String(body.name === null || body.name === undefined ? '' : body.name)
+      .replace(/\s+/g, ' ').trim();
+    if (!name || name.length > 60) throw new ApiError('VALIDATION');
+
+    return withLock_(function () {
+      var sheet = ensureUsersSheet_();
+      var map = headerMap_(sheet);
+      var rowIndex = findUserRow_(sheet, map, user.phone);
+      if (!rowIndex || !map.displayName) throw new ApiError('UNAUTHORIZED');
+      var cell = sheet.getRange(rowIndex, map.displayName);
+      cell.setNumberFormats([['@']]);
+      cell.setValue(name);
+      return { phone: user.phone, name: name };
+    }, 'updateProfile');
   }
 
   // ==========================================================================
@@ -974,6 +1017,161 @@ var VBStoreApi = (function () {
     return { orders: orders };
   }
 
+  function isDeliveredStatus_(status) {
+    var value = String(status || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!value || /не\s*достав|недостав|не\s*получ|возврат/.test(value)) return false;
+    return /^(доставлен[аоы]?|получен[аоы]?|delivered)(?:\s|$|[.,:;!])/.test(value);
+  }
+
+  function reviewItemKey_(productId, size, color) {
+    return JSON.stringify([String(productId || ''), String(size || ''), String(color || '')]);
+  }
+
+  function rowToReview_(map, row) {
+    function cell(name) { return map[name] ? row[map[name] - 1] : ''; }
+    return {
+      reviewId: String(cell('reviewId')),
+      createdAt: toDate_(cell('createdAt')).toISOString(),
+      orderId: String(cell('orderId')),
+      productId: String(cell('productId')),
+      size: String(cell('size') || '') || null,
+      color: String(cell('color') || '') || null,
+      rating: Number(cell('rating')) || 0,
+      text: String(cell('text') || ''),
+      authorName: String(cell('authorName') || 'Покупатель')
+    };
+  }
+
+  function myReviews_(body) {
+    var user = authenticate_(body.token);
+    var sheet = ensureReviewsSheet_();
+    var map = headerMap_(sheet);
+    var last = sheet.getLastRow();
+    if (last < 2) return { reviews: [] };
+
+    var rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+    var result = [];
+    for (var i = rows.length - 1; i >= 0; i--) {
+      if (normalizePhone_(rows[i][map.userPhone - 1]) === user.phone) {
+        result.push(rowToReview_(map, rows[i]));
+      }
+    }
+    return { reviews: result };
+  }
+
+  /** Публичный список: отдаём только отзыв и его автора — без телефона и номера заказа. */
+  function productReviews_(body) {
+    var productId = String(body.productId || '').trim();
+    if (!productId) throw new ApiError('VALIDATION');
+
+    var sheet = ensureReviewsSheet_();
+    var map = headerMap_(sheet);
+    var last = sheet.getLastRow();
+    if (last < 2) return { reviews: [] };
+
+    var rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+    var result = [];
+    for (var i = rows.length - 1; i >= 0; i--) {
+      if (String(rows[i][map.productId - 1]) !== productId) continue;
+      var review = rowToReview_(map, rows[i]);
+      result.push({
+        reviewId: review.reviewId,
+        createdAt: review.createdAt,
+        productId: review.productId,
+        size: review.size,
+        color: review.color,
+        rating: review.rating,
+        text: review.text,
+        authorName: review.authorName
+      });
+    }
+    return { reviews: result };
+  }
+
+  function createReview_(body) {
+    var user = authenticate_(body.token);
+    var orderId = String(body.orderId || '').trim();
+    var productId = String(body.productId || '').trim();
+    var size = String(body.size === null || body.size === undefined ? '' : body.size).trim();
+    var color = String(body.color === null || body.color === undefined ? '' : body.color).trim();
+    var rating = Number(body.rating);
+    var text = String(body.text === null || body.text === undefined ? '' : body.text).trim();
+
+    if (!orderId || !productId || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      throw new ApiError('VALIDATION');
+    }
+    if (text.length > 1000) throw new ApiError('VALIDATION');
+    var itemKey = reviewItemKey_(productId, size, color);
+
+    return withLock_(function () {
+      var ordersSheet = ensureOrdersSheet_();
+      var ordersMap = headerMap_(ordersSheet);
+      var lastOrderRow = ordersSheet.getLastRow();
+      var order = null;
+      if (lastOrderRow >= 2 && ordersMap.orderId && ordersMap.userPhone) {
+        var orderRows = ordersSheet.getRange(
+          2, 1, lastOrderRow - 1, ordersSheet.getLastColumn()
+        ).getValues();
+        for (var i = orderRows.length - 1; i >= 0; i--) {
+          if (String(orderRows[i][ordersMap.orderId - 1]) === orderId &&
+              normalizePhone_(orderRows[i][ordersMap.userPhone - 1]) === user.phone) {
+            order = rowToOrder_(ordersMap, orderRows[i]);
+            break;
+          }
+        }
+      }
+      if (!order) throw new ApiError('ORDER_NOT_FOUND');
+      if (!isDeliveredStatus_(order.status)) throw new ApiError('ORDER_NOT_DELIVERED');
+
+      var itemExists = order.items.some(function (item) {
+        return String(item.productId) === productId &&
+          String(item.size || '') === size && String(item.color || '') === color;
+      });
+      if (!itemExists) throw new ApiError('REVIEW_NOT_ALLOWED');
+
+      var sheet = ensureReviewsSheet_();
+      var map = headerMap_(sheet);
+      var lastReviewRow = sheet.getLastRow();
+      if (lastReviewRow >= 2) {
+        var reviewRows = sheet.getRange(2, 1, lastReviewRow - 1, sheet.getLastColumn()).getValues();
+        for (var j = 0; j < reviewRows.length; j++) {
+          var row = reviewRows[j];
+          if (normalizePhone_(row[map.userPhone - 1]) === user.phone &&
+              String(row[map.orderId - 1]) === orderId && String(row[map.itemKey - 1]) === itemKey) {
+            throw new ApiError('REVIEW_EXISTS');
+          }
+        }
+      }
+
+      var createdAt = new Date();
+      var review = {
+        reviewId: Utilities.getUuid(),
+        createdAt: createdAt.toISOString(),
+        orderId: orderId,
+        productId: productId,
+        size: size || null,
+        color: color || null,
+        rating: rating,
+        text: text,
+        authorName: user.name || 'Покупатель'
+      };
+      appendRecord_(sheet, map, {
+        reviewId: review.reviewId,
+        createdAt: createdAt,
+        userPhone: user.phone,
+        orderId: orderId,
+        productId: productId,
+        itemKey: itemKey,
+        size: size,
+        color: color,
+        rating: rating,
+        text: text,
+        authorName: review.authorName
+      }, REVIEW_FORMATS, 'reviewId');
+      return { review: review };
+    }, 'createReview');
+  }
+
   // ==========================================================================
   // Точки входа
   // ==========================================================================
@@ -981,8 +1179,12 @@ var VBStoreApi = (function () {
     register: register_,
     login: login_,
     me: me_,
+    updateProfile: updateProfile_,
     createOrder: createOrder_,
-    myOrders: myOrders_
+    myOrders: myOrders_,
+    myReviews: myReviews_,
+    productReviews: productReviews_,
+    createReview: createReview_
   };
 
   /**
@@ -1042,13 +1244,14 @@ var VBStoreApi = (function () {
     return null;
   }
 
-  /** Запустите один раз вручную: создаст листы USERS и ORDERS и секреты шифрования. */
+  /** Запустите один раз вручную: создаст листы USERS, ORDERS, REVIEWS и секреты шифрования. */
   function setup() {
     ensureUsersSheet_();
     ensureOrdersSheet_();
+    ensureReviewsSheet_();
     getSecret_('TOKEN_SECRET');
     getSecret_('PASSWORD_PEPPER');
-    var message = 'Готово: листы ' + CONFIG.USERS_SHEET + ' и ' + CONFIG.ORDERS_SHEET + ' созданы, секреты настроены.';
+    var message = 'Готово: листы ' + CONFIG.USERS_SHEET + ', ' + CONFIG.ORDERS_SHEET + ' и ' + CONFIG.REVIEWS_SHEET + ' созданы, секреты настроены.';
     Logger.log(message);
     return message;
   }

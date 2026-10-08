@@ -27,20 +27,27 @@ export interface Session {
   token: string;
   /** Нормализованный номер: +7XXXXXXXXXX */
   phone: string;
+  /** Имя, сохранённое в профиле пользователя */
+  name: string;
   /** Время окончания сессии, мс (0 — неизвестно) */
   expiresAt: number;
 }
 
 function parseSession(raw: unknown): Session | null {
   if (!raw || typeof raw !== "object") return null;
-  const { token, phone, expiresAt } = raw as Partial<Session>;
+  const { token, phone, name, expiresAt } = raw as Partial<Session>;
   if (typeof token !== "string" || !token) return null;
   if (typeof phone !== "string" || !normalizePhone(phone)) return null;
 
   const expires = Number(expiresAt);
   if (Number.isFinite(expires) && expires > 0 && expires < Date.now()) return null;
 
-  return { token, phone, expiresAt: Number.isFinite(expires) ? expires : 0 };
+  return {
+    token,
+    phone,
+    name: typeof name === "string" ? name : "",
+    expiresAt: Number.isFinite(expires) ? expires : 0,
+  };
 }
 
 const sessionStore = createStore<Session | null>(parseSession(readJSON(SESSION_KEY)));
@@ -55,6 +62,7 @@ export function useAuth() {
   return {
     session,
     phone: session?.phone ?? null,
+    name: session?.name ?? "",
     token: session?.token ?? null,
     isAuthenticated: session !== null,
   };
@@ -91,6 +99,7 @@ async function derivePasswordProof(phone: string, password: string): Promise<str
 interface AuthResponse {
   token: string;
   phone: string;
+  name?: string;
   /** Unix-время в секундах */
   expiresAt: number;
 }
@@ -99,6 +108,7 @@ function storeSession(response: AuthResponse): Session {
   const session = parseSession({
     token: response.token,
     phone: response.phone,
+    name: response.name,
     expiresAt: Number(response.expiresAt) * 1000,
   });
   if (!session) throw new ApiError("BAD_RESPONSE");
@@ -160,8 +170,22 @@ export async function validateSession(): Promise<void> {
   if (validated || !sessionStore.get()) return;
   validated = true;
   try {
-    await authedPost<{ phone: string }>("me", {}, 15_000);
+    const profile = await authedPost<{ phone: string; name?: string }>("me", {}, 15_000);
+    const session = sessionStore.get();
+    if (session) sessionStore.set({ ...session, name: profile.name ?? session.name });
   } catch {
     // ошибка сети / сервис недоступен — не мешаем пользователю
   }
+}
+
+/** Изменяет имя в профиле на сервере и синхронизирует его с текущей сессией. */
+export async function updateProfileName(value: string): Promise<string> {
+  const name = value.trim().replace(/\s+/g, " ");
+  if (!name || name.length > 60) throw new ApiError("VALIDATION");
+
+  const profile = await authedPost<{ name?: string }>("updateProfile", { name });
+  const savedName = profile.name ?? name;
+  const session = sessionStore.get();
+  if (session) sessionStore.set({ ...session, name: savedName });
+  return savedName;
 }

@@ -72,8 +72,11 @@ export default function CheckoutPage() {
   const [addressOpen, setAddressOpen] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [sizeIndex, setSizeIndex] = useState<number | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const completedRef = useRef(false);
+  const pendingSubmitRef = useRef(false);
+  const submitRef = useRef<(() => Promise<void>) | null>(null);
   const attemptRef = useRef<{ id: string; fingerprint: string } | null>(null);
   const sizeRef = useRef<HTMLElement>(null);
   const deliveryRef = useRef<HTMLElement>(null);
@@ -85,13 +88,13 @@ export default function CheckoutPage() {
     document.title = "Оформление заказа — VB STORE";
   }, []);
 
-  // после входа/регистрации форма заменяет экран входа — показываем её сверху
-  const wasAuthenticated = useRef(isAuthenticated);
+  // Если вход выполнен из окна последнего шага, автоматически продолжаем отправку заказа.
   useEffect(() => {
-    if (!wasAuthenticated.current && isAuthenticated) {
-      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    if (isAuthenticated && pendingSubmitRef.current) {
+      pendingSubmitRef.current = false;
+      setAuthOpen(false);
+      window.setTimeout(() => void submitRef.current?.(), 0);
     }
-    wasAuthenticated.current = isAuthenticated;
   }, [isAuthenticated]);
 
   // сообщение об ошибке отправки показываем сразу, а не где-то под закреплённой панелью
@@ -156,6 +159,13 @@ export default function CheckoutPage() {
     if (deliveryError) return scrollTo(deliveryRef);
     if (paymentError) return scrollTo(paymentRef);
     if (!delivery.type || !payment) return;
+
+    // Авторизацию спрашиваем только после всех решений и последнего нажатия «Заказать».
+    if (!isAuthenticated) {
+      pendingSubmitRef.current = true;
+      setAuthOpen(true);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -229,7 +239,9 @@ export default function CheckoutPage() {
       });
     } catch (error) {
       if (error instanceof ApiError && error.code === "UNAUTHORIZED") {
-        toast.error(error.message);
+        pendingSubmitRef.current = true;
+        setAuthOpen(true);
+        setSubmitError("");
         return;
       }
       if (error instanceof ApiError && REFRESH_CODES.has(error.code)) {
@@ -241,6 +253,7 @@ export default function CheckoutPage() {
       setSubmitting(false);
     }
   };
+  submitRef.current = submit;
 
   const pickSizeLine = sizeIndex !== null ? lines[sizeIndex] : undefined;
   const orderButtonLabel = `Заказать ${formatPrice(totals.total)}`;
@@ -255,32 +268,6 @@ export default function CheckoutPage() {
       </p>
     </header>
   );
-
-  // ---------------------------------------------------------------------------
-  // Не авторизован: сначала вход / регистрация, затем оформление продолжается здесь же
-  // ---------------------------------------------------------------------------
-  if (!isAuthenticated) {
-    return (
-      <main className="min-h-screen pb-[calc(var(--vb-mobile-nav-h,0px)+2rem)] pt-20 lg:pb-24">
-        <div className="mx-auto max-w-xl px-4 sm:px-6">
-          {heading}
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <UserRound size={20} className="mt-0.5 shrink-0 text-white/50" />
-            <p className="text-sm leading-relaxed text-white/70">
-              Чтобы оформить заказ, войдите в аккаунт или зарегистрируйтесь. Выбранные товары
-              сохранятся — после входа вы продолжите оформление с этого же места.
-            </p>
-          </div>
-          <AuthPanel initialTab="register" />
-          <ul className="mt-5 flex flex-col gap-2">
-            {lines.map((line, index) => (
-              <ItemRow key={`${line.source.productId}-${index}`} line={line} />
-            ))}
-          </ul>
-        </div>
-      </main>
-    );
-  }
 
   const deliveryPriceLabel = getDeliveryPriceLabel(delivery);
 
@@ -333,9 +320,15 @@ export default function CheckoutPage() {
             {/* Покупатель */}
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <UserRound size={18} className="shrink-0 text-white/50" />
-              <p className="min-w-0 flex-1 truncate text-sm text-white/70">
-                Заказ на номер{" "}
-                <span className="font-semibold text-white">{formatPhone(phone)}</span>
+              <p className="min-w-0 flex-1 text-sm text-white/70">
+                {isAuthenticated ? (
+                  <>
+                    Заказ на номер{" "}
+                    <span className="font-semibold text-white">{formatPhone(phone)}</span>
+                  </>
+                ) : (
+                  "Вход потребуется только после заполнения заказа — на последнем шаге."
+                )}
               </p>
             </div>
 
@@ -584,6 +577,21 @@ export default function CheckoutPage() {
           )}
         </button>
       </StickyBar>
+
+      {/* Авторизацию просим только после нажатия финальной кнопки и заполнения заказа. */}
+      <Sheet
+        open={authOpen}
+        onClose={() => {
+          pendingSubmitRef.current = false;
+          setAuthOpen(false);
+        }}
+        title="Войдите, чтобы оформить заказ"
+      >
+        <p className="mb-4 text-sm leading-relaxed text-white/55">
+          Доставка, размеры и сумма заказа сохранены. После входа или регистрации оформление продолжится автоматически.
+        </p>
+        <AuthPanel initialTab="login" onSuccess={() => setAuthOpen(false)} />
+      </Sheet>
 
       {/* Выбор адреса пункта выдачи */}
       <Sheet open={addressOpen} onClose={() => setAddressOpen(false)} title="Адрес доставки">

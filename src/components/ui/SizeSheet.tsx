@@ -47,8 +47,8 @@ export default function SizeSheet({
     product && getProductMacroGroup(product.category, product.name) === "shoes"
   );
   const hasInsoleChart = Boolean(
-    isShoe && sizes.some(({ size }) =>
-      size.status !== "unavailable" && getShoeInsoleLength(size.value)
+    isShoe && sizes.some(({ size, info }) =>
+      info.orderable && getShoeInsoleLength(size.value)
     )
   );
   const draftInfo = sizes.find(({ info }) => info.value === draftSize)?.info;

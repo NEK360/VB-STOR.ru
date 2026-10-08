@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { Product } from "../../lib/api";
 import { getProductMacroGroup, getShoeInsoleLength } from "../../lib/sizes";
@@ -13,23 +13,43 @@ type ProductSizePickerProps = {
   variant?: Variant;
 };
 
-/** Размеры товара; у обуви 36–46 показывает длину стельки как WB. */
+/** Размеры товара; у доступной обуви 36–46 временно показывает длину стельки как WB. */
 export default function ProductSizePicker({
   product,
   selectedSize,
   onSelect,
   variant = "product",
 }: ProductSizePickerProps) {
-  const [hoveredSize, setHoveredSize] = useState<string | null>(null);
-  const [focusedSize, setFocusedSize] = useState<string | null>(null);
+  const [activeSize, setActiveSize] = useState<string | null>(null);
+  const touchTimer = useRef<number | null>(null);
   const idPrefix = useId().replace(/:/g, "");
   const isShoe = getProductMacroGroup(product.category, product.name) === "shoes";
-  const activeSize = hoveredSize ?? focusedSize ?? (selectedSize ? String(selectedSize) : null);
+
+  const clearTouchTimer = () => {
+    if (touchTimer.current !== null) {
+      window.clearTimeout(touchTimer.current);
+      touchTimer.current = null;
+    }
+  };
+
+  const showTemporarily = (size: string, duration = 1400) => {
+    clearTouchTimer();
+    setActiveSize(size);
+    touchTimer.current = window.setTimeout(() => {
+      setActiveSize((current) => (current === size ? null : current));
+      touchTimer.current = null;
+    }, duration);
+  };
+
+  useEffect(() => () => {
+    if (touchTimer.current !== null) window.clearTimeout(touchTimer.current);
+  }, []);
+
   const chartSizeIndexes = isShoe
     ? product.sizes.reduce<number[]>((indexes, size, index) => {
-        if (size.status !== "unavailable" && getShoeInsoleLength(size.value)) {
-          indexes.push(index);
-        }
+        const info = getSizeInfo(size);
+        const available = variant === "sheet" ? info.orderable : !info.unavailable;
+        if (available && getShoeInsoleLength(size.value)) indexes.push(index);
         return indexes;
       }, [])
     : [];
@@ -43,10 +63,10 @@ export default function ProductSizePicker({
     >
       {product.sizes.map((size, index) => {
         const info = getSizeInfo(size);
-        const disabled = variant === "sheet" ? !info.orderable : size.status === "unavailable";
+        const disabled = variant === "sheet" ? !info.orderable : info.unavailable;
         const isSelected = !disabled && String(selectedSize) === info.value;
         const insoleLength = isShoe ? getShoeInsoleLength(info.value) : null;
-        const hasMeasurement = Boolean(insoleLength) && size.status !== "unavailable";
+        const hasMeasurement = Boolean(insoleLength) && !disabled;
         const showTooltip = hasMeasurement && activeSize === info.value;
         const tooltipId = `${idPrefix}-shoe-size-${info.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
@@ -81,11 +101,18 @@ export default function ProductSizePicker({
             key={info.value}
             className={`relative ${showTooltip ? "z-40" : "z-0"}`}
             onPointerEnter={(event) => {
+              if (!hasMeasurement) return;
               if (event.pointerType === "mouse" || event.pointerType === "pen") {
-                setHoveredSize(info.value);
+                clearTouchTimer();
+                setActiveSize(info.value);
+              } else if (event.pointerType === "touch") {
+                showTemporarily(info.value);
               }
             }}
-            onPointerLeave={() => setHoveredSize(null)}
+            onPointerLeave={() => {
+              clearTouchTimer();
+              setActiveSize((current) => (current === info.value ? null : current));
+            }}
           >
             <div
               className={`pointer-events-none absolute bottom-[calc(100%+9px)] z-[80] w-[148px] ${tooltipAlign}`}
@@ -130,8 +157,30 @@ export default function ProductSizePicker({
               type="button"
               disabled={disabled}
               onClick={() => onSelect(info.value)}
-              onFocus={() => setFocusedSize(info.value)}
-              onBlur={() => setFocusedSize(null)}
+              onPointerDown={(event) => {
+                if (hasMeasurement && event.pointerType === "touch") {
+                  showTemporarily(info.value);
+                }
+              }}
+              onPointerUp={(event) => {
+                if (hasMeasurement && event.pointerType === "touch") {
+                  showTemporarily(info.value, 1000);
+                }
+              }}
+              onPointerCancel={() => {
+                clearTouchTimer();
+                setActiveSize((current) => (current === info.value ? null : current));
+              }}
+              onFocus={(event) => {
+                if (hasMeasurement && event.currentTarget.matches(":focus-visible")) {
+                  clearTouchTimer();
+                  setActiveSize(info.value);
+                }
+              }}
+              onBlur={() => {
+                clearTouchTimer();
+                setActiveSize((current) => (current === info.value ? null : current));
+              }}
               aria-pressed={isSelected}
               aria-disabled={disabled}
               aria-describedby={showTooltip ? tooltipId : undefined}

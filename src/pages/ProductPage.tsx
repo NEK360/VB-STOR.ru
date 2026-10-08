@@ -22,6 +22,8 @@ import {
   type Product,
 } from "../lib/api";
 import { getProductMacroGroup } from "../lib/sizes";
+import { fetchProductReviews, type CustomerReview } from "../lib/customerReviews";
+import type { Review } from "../store-data/reviews";
 import { contacts } from "../store-data/contacts";
 import { formatPrice, reviewsWord } from "../lib/utils";
 import { useFavorites } from "../hooks/useFavorites";
@@ -96,6 +98,7 @@ export default function ProductPage() {
   );
   const [catalogError, setCatalogError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
 
   useEffect(() => {
     if (!id) {
@@ -155,6 +158,27 @@ export default function ProductPage() {
     };
   }, [id, retryCount]);
 
+  useEffect(() => {
+    if (!product?.id) {
+      setCustomerReviews([]);
+      return;
+    }
+
+    let active = true;
+    fetchProductReviews(String(product.id))
+      .then((reviews) => {
+        if (active) setCustomerReviews(reviews);
+      })
+      .catch(() => {
+        // Пользовательские отзывы дополняют каталог, но не блокируют карточку при сбое сервиса.
+        if (active) setCustomerReviews([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [product?.id]);
+
   const navigate = useNavigate();
   const { isFavorite, toggle } = useFavorites();
   const { addViewed } = useRecentlyViewed();
@@ -202,17 +226,20 @@ export default function ProductPage() {
 
   const fav = isFavorite(product?.id ?? "");
 
-  const productReviews = useMemo(
-    () => (product ? getReviewsForProduct(product) : []),
-    [product]
-  );
-  const reviewsCount = Math.max(
-    product?.reviewsCount ?? 0,
-    productReviews.length
-  );
+  const productReviews = useMemo<Review[]>(() => {
+    if (!product) return [];
+    const merged = [...customerReviews, ...getReviewsForProduct(product)];
+    const unique = new Map<string, Review>();
+    merged.forEach((review) => unique.set(review.id, review));
+    return [...unique.values()].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  }, [product, customerReviews]);
+  const reviewsCount = Math.max(product?.reviewsCount ?? 0, productReviews.length);
   const hasReviews = reviewsCount > 0;
-  const ratingValue =
-    product && product.rating > 0 ? product.rating : 5;
+  const ratingValue = productReviews.length
+    ? Number((productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length).toFixed(1))
+    : product && product.rating > 0
+      ? product.rating
+      : 5;
 
   const gallery = useMemo<GalleryItem[]>(() => {
     if (!product) return [];

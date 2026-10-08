@@ -4,14 +4,22 @@ import { ChevronDown, ClipboardList, LoaderCircle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getErrorMessage } from "../lib/backend";
 import { fetchMyOrders, type Order } from "../lib/orders";
+import {
+  fetchMyReviews,
+  hasReviewForOrderItem,
+  isDeliveredOrderStatus,
+  type CustomerReview,
+} from "../lib/customerReviews";
 import { formatPrice } from "../lib/utils";
 import AuthPanel from "../components/ui/AuthPanel";
 import OrderSummary, { formatOrderDate } from "../components/ui/OrderSummary";
+import OrderReviewForm from "../components/ui/OrderReviewForm";
 
 /** «Мои заказы» — история заказов текущего пользователя (берётся с сервера, из листа ORDERS). */
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -24,7 +32,12 @@ export default function OrdersPage() {
     setLoading(true);
     setError("");
     try {
-      setOrders(await fetchMyOrders());
+      const [nextOrders, nextReviews] = await Promise.all([
+        fetchMyOrders(),
+        fetchMyReviews().catch(() => []),
+      ]);
+      setOrders(nextOrders);
+      setCustomerReviews(nextReviews);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -36,6 +49,7 @@ export default function OrdersPage() {
     if (isAuthenticated) void load();
     else {
       setOrders(null);
+      setCustomerReviews([]);
       setError("");
     }
   }, [isAuthenticated, load]);
@@ -158,6 +172,30 @@ export default function OrdersPage() {
                   {open && (
                     <div className="border-t border-white/8 p-4">
                       <OrderSummary order={order} />
+                      {isDeliveredOrderStatus(order.status) && order.items.length > 0 && (
+                        <section className="mt-5 border-t border-white/8 pt-4" aria-label="Отзывы о товарах заказа">
+                          <h3 className="text-sm font-semibold text-white">Оцените покупку</h3>
+                          <p className="mb-3 mt-1 text-xs leading-relaxed text-white/40">
+                            Оценку можно оставить только для товаров из доставленного заказа. Комментарий необязателен.
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            {order.items.map((item, index) => (
+                              <OrderReviewForm
+                                key={`${order.orderId}-${item.productId}-${item.size ?? ""}-${item.color ?? ""}-${index}`}
+                                orderId={order.orderId}
+                                item={item}
+                                alreadyReviewed={hasReviewForOrderItem(customerReviews, order.orderId, item)}
+                                onSubmitted={(review) => {
+                                  setCustomerReviews((current) => [
+                                    review,
+                                    ...current.filter((existing) => existing.id !== review.id),
+                                  ]);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      )}
                     </div>
                   )}
                 </li>
