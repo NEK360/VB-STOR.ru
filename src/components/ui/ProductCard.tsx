@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, Heart, ShoppingCart, Star, Truck } from "lucide-react";
+import { Check, Heart, ShoppingCart, Star } from "lucide-react";
 import { getReviewsForProduct, type Product } from "../../lib/api";
 import { analytics } from "../../lib/analytics";
 import { addToCart, useProductCartCount } from "../../lib/cart";
@@ -143,42 +143,35 @@ export default function ProductCard({ product, index = 0 }: Props) {
             </span>
           )}
         </div>
-      </div>
 
-      {/* Широкая WB-подобная кнопка. Размер выбирается в шторке до добавления. */}
-      <button
-        type="button"
-        onClick={handleCartClick}
-        disabled={!orderable}
-        aria-label={hasSizes(product) ? "Выбрать размер и добавить в корзину" : "Добавить в корзину"}
-        className={`relative mt-2 flex min-h-[50px] w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left shadow-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 ${
-          justAdded
-            ? "bg-emerald-600 text-white"
-            : orderable
-              ? "bg-[#cb11ab] text-white hover:bg-[#b80f9a]"
-              : ""
-        }`}
-      >
-        {justAdded ? <Check size={18} strokeWidth={2.75} /> : <ShoppingCart size={18} />}
-        <span className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="text-[13px] font-bold">
-            {!orderable ? "Нет в наличии" : justAdded ? "Добавлено" : "В корзину"}
-          </span>
-          <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-white/75">
-            <Truck size={11} /> Доставка — Завтра
-          </span>
-        </span>
-        {inCartCount > 0 && !justAdded && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-extrabold text-[#8f0b79]">
-            {inCartCount}
-          </span>
-        )}
-      </button>
+        {/* Маленькая кнопка корзины в прежнем стиле; для товара с размерами сначала открывает выбор. */}
+        <button
+          type="button"
+          onClick={handleCartClick}
+          aria-label={hasSizes(product) ? "Выбрать размер и добавить в корзину" : "Добавить в корзину"}
+          title={orderable ? "В корзину" : "Товар временно недоступен"}
+          aria-disabled={!orderable}
+          className={`absolute -bottom-3 right-2.5 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border shadow-lg transition-all duration-200 active:scale-90 ${
+            justAdded
+              ? "scale-105 border-emerald-400 bg-emerald-500 text-white shadow-emerald-950/50"
+              : inCartCount > 0
+                ? "border-purple-400/50 bg-[#a73afd] text-white shadow-purple-950/60 hover:bg-[#9327e8]"
+                : "border-white/15 bg-[#a73afd] text-white shadow-black/60 hover:scale-105 hover:bg-[#b554ff]"
+          }`}
+        >
+          {justAdded ? <Check size={16} strokeWidth={2.75} /> : <ShoppingCart size={16} strokeWidth={2.2} />}
+          {inCartCount > 0 && !justAdded && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-extrabold text-black shadow">
+              {inCartCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Информация в карточке */}
       <div className="flex flex-1 flex-col px-1 pt-2.5">
         <Link to={`/catalog/${product.id}`} className="rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-          <div className="flex flex-wrap items-baseline gap-1.5 pr-2">
+          <div className="flex flex-wrap items-baseline gap-1.5 pr-10">
             <span
               className={`text-base font-extrabold leading-tight tracking-tight sm:text-[17px] ${
                 hasDiscount ? "text-[#ff4d8d]" : "text-white"
